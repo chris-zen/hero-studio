@@ -31,12 +31,6 @@ impl ClockTime {
     ClockTime(samples as UnitType * UNITS_PER_SECOND / sample_rate as UnitType)
   }
 
-  pub fn error_per_sample(sample_rate: SampleRate) -> f64 {
-    let time_per_sample = ClockTime::from_samples(1, sample_rate);
-    let error_per_second = ClockTime::from_seconds(1.0) - (time_per_sample * sample_rate);
-    error_per_second.0 as f64 / sample_rate as f64
-  }
-
   pub fn units(&self) -> UnitType {
     self.0
   }

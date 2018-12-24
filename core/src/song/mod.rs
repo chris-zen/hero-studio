@@ -12,7 +12,8 @@ use crate::time::{
   ClockTime,
   TicksTime,
   BarsTime,
-  clock
+  clock,
+  TimeDriftCorrection
 };
 
 use self::track::Track;
@@ -28,9 +29,7 @@ pub struct Song {
   signature: Signature,
 
   sample_rate: SampleRate,
-  time_per_sample: ClockTime,
-  time_error_per_sample: f64,
-  time_error_accum: f64,
+  time_drift_correction: TimeDriftCorrection,
 
   playing: bool,
   start_time: ClockTime,
@@ -55,9 +54,7 @@ impl Song {
       signature: Signature::new(DEFAULT_SIGNATURE_NUM_BEATS, DEFAULT_SIGNATURE_NOTE_VALUE),
 
       sample_rate: sample_rate,
-      time_per_sample: ClockTime::zero(),
-      time_error_per_sample: 0.0,
-      time_error_accum: 0.0,
+      time_drift_correction: TimeDriftCorrection::new(sample_rate),
 
       playing: false,
       start_time: ClockTime::zero(),
@@ -152,20 +149,13 @@ impl Song {
   pub fn process(&mut self, samples: u32) {
     if self.playing {
       self.current_time = self.next_time;
-
       let mut start_time = self.current_time;
-      let mut remaining_time = self.time_per_sample * samples as u32;
-      let total_error = self.time_error_accum + self.time_error_per_sample * samples as f64;
-      if total_error >= 1.0 {
-        let correction = total_error.round();
-        self.time_error_accum = total_error - correction;
-        remaining_time += ClockTime::new(correction as clock::UnitType);
-        println!("[{:013?}] Err: {:?} Correction {:?}", self.current_time.units(), self.time_error_accum, correction);
-      }
-      else {
-        self.time_error_accum = total_error;
-        println!("[{:013?}] Err: {:?}", self.current_time.units(), self.time_error_accum);
-      }
+      let mut remaining_time = self.time_drift_correction.update(samples);
+
+      println!("[{:013?}] Err: {:?} Correction {:?}",
+        self.current_time.units(),
+        self.time_drift_correction.get_error_accumulated(),
+        self.time_drift_correction.get_last_correction());
 
       while remaining_time > ClockTime::zero() {
         self.next_time += remaining_time;
@@ -191,9 +181,8 @@ impl Song {
 
   ///! Update timing constants that change sporadically (ex. changes on sample rate, tempo, signature, ...)
   fn update_timing_constants(&mut self) {
-    self.time_per_sample = ClockTime::from_samples(1, self.sample_rate);
-    self.time_error_per_sample = ClockTime::error_per_sample(self.sample_rate);
-    println!("Time error per sample = {:?} clock units", self.time_error_per_sample);
+    self.time_drift_correction = TimeDriftCorrection::new(self.sample_rate);
+    println!("Time error per sample = {:?} clock units", self.time_drift_correction.get_error_per_sample());
   }
 
   ///! Determine whether or not not to move the song position to the start of the loop
