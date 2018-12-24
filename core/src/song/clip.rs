@@ -1,7 +1,7 @@
 pub mod audio;
 pub mod notes;
 
-use crate::song::time::{Signature, TicksTime};
+use crate::time::{Signature, TicksTime};
 
 pub type ClipId = u64;
 
