@@ -1,4 +1,4 @@
-use std::rc::Rc;
+use std::sync::{Arc, RwLock};
 
 use crate::song::{
   clip::{Clip, ClipId},
@@ -7,7 +7,7 @@ use crate::song::{
 
 
 pub struct AudioData {
-  source: Rc<AudioDataSource>,
+  source: Arc<RwLock<AudioDataSource>>,
   id: ClipId,
 }
 

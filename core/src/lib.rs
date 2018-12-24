@@ -1,5 +1,12 @@
 pub mod color;
 
-pub mod song;
+pub mod midi;
+
+pub mod config;
 
 pub mod studio;
+
+pub mod time;
+
+pub mod song;
+

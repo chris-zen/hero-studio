@@ -6,7 +6,7 @@ Initially the scope will be reduced to only MIDI, and there will be a different 
 
 How the UI will be build is still very uncertain.
 
-# Organisation
+## Organisation
 
 This is a multi-project composed by:
 
@@ -14,7 +14,7 @@ This is a multi-project composed by:
 
 More sub-projects will come depending on how I decide to build the UI.
 
-# Tests
+## Tests
 
 Tests can be run with:
 

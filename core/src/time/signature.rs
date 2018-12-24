@@ -1,9 +1,3 @@
-pub mod ticks;
-pub mod bars;
-
-pub use self::ticks::TicksTime;
-pub use self::bars::BarsTime;
-
 #[derive(Debug, Clone, Copy)]
 pub struct Signature {
   num_beats: u8,  // numerator
@@ -28,34 +22,15 @@ impl Signature {
   }
 }
 
-pub struct Tempo(u16);
-
-impl Tempo {
-  pub fn new(value: u16) -> Tempo {
-    Tempo(value)
-  }
-
-  pub fn get_value(&self) -> u16 {
-    self.0
-  }
-}
-
 #[cfg(test)]
 mod test {
 
   use super::Signature;
-  use super::Tempo;
 
   #[test]
   pub fn signature_new() {
     let signature = Signature::new(3, 4);
     assert_eq!(signature.get_num_beats(), 3);
     assert_eq!(signature.get_note_value(), 4);
-  }
-
-  #[test]
-  pub fn tempo_new() {
-    let tempo = Tempo::new(120);
-    assert_eq!(tempo.get_value(), 120);
   }
 }

@@ -56,7 +56,6 @@ mod test {
   use std::cmp::Ordering;
   use super::TicksTime;
 
-
   #[test]
   pub fn new() {
     let ticks_time = TicksTime::new(1234);

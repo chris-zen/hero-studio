@@ -1,4 +1,8 @@
-use crate::song::time::{Signature, TicksTime, ticks::TICKS_RESOLUTION};
+use crate::time::{
+  Signature,
+  TicksTime,
+  ticks::TICKS_RESOLUTION
+};
 
 pub struct BarsTime {
   bars: u16,
@@ -19,11 +23,11 @@ impl BarsTime {
 
   pub fn from_ticks_time(ticks_time: TicksTime, signature: Signature) -> BarsTime {
     let total_sixteenths = ticks_time.get_ticks() / TICKS_RESOLUTION;
-    let num_sixteenths_per_beat = 16 / signature.note_value as u64;
+    let num_sixteenths_per_beat = 16 / signature.get_note_value() as u64;
     let total_beats = total_sixteenths / num_sixteenths_per_beat;
     BarsTime {
-      bars: (total_beats / signature.num_beats as u64) as u16,
-      beats: (total_beats % signature.num_beats as u64) as u16,
+      bars: (total_beats / signature.get_num_beats() as u64) as u16,
+      beats: (total_beats % signature.get_num_beats() as u64) as u16,
       sixteenths: (total_sixteenths % num_sixteenths_per_beat) as u16,
       ticks: (ticks_time.get_ticks() % TICKS_RESOLUTION) as u16,
     }
@@ -46,9 +50,9 @@ impl BarsTime {
   }
 
   pub fn to_ticks_time(&self, signature: Signature) -> TicksTime {
-    let num_sixteenths_per_beat = 16 / signature.note_value as u64;
+    let num_sixteenths_per_beat = 16 / signature.get_note_value() as u64;
     let num_ticks_per_beat = num_sixteenths_per_beat * TICKS_RESOLUTION;
-    let num_ticks_per_bar = signature.num_beats as u64 * num_ticks_per_beat;
+    let num_ticks_per_bar = signature.get_num_beats() as u64 * num_ticks_per_beat;
     TicksTime::new(
       self.bars as u64 * num_ticks_per_bar
         + self.beats as u64 * num_ticks_per_beat
@@ -62,7 +66,7 @@ impl BarsTime {
 mod test {
 
   use super::BarsTime;
-  use crate::song::time::{
+  use crate::time::{
     ticks::TicksTime,
     ticks::TICKS_RESOLUTION,
     Signature,

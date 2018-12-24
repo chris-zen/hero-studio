@@ -1,4 +1,4 @@
-use std::rc::Rc;
+use std::sync::{Arc, RwLock};
 
 use crate::song::{
   clip::{Clip, ClipId},
@@ -6,7 +6,7 @@ use crate::song::{
 };
 
 pub struct Notes {
-  source: Rc<NotesSource>,
+  source: Arc<RwLock<NotesSource>>,
   id: ClipId,
 }
 

@@ -3,9 +3,9 @@ use std::collections::{
   BTreeMap
 };
 
-use crate::song::{
-  time::TicksTime,
-  clip::ClipId
+use crate::{
+  song::clip::ClipId,
+  time::TicksTime
 };
 
 type Key = u8;
