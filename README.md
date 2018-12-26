@@ -24,6 +24,7 @@ More sub-projects will come depending on how I decide to build the UI.
 You will need to install [PortAudio](http://www.portaudio.com/download.html) before running the project as we're using as the [portaudio crate](https://docs.rs/crate/portaudio/0.7.0) has a dependency on it.
 
 ```sh
+cd app-native
 cargo run --release
 ```
 

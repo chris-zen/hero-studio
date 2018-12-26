@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 use std::fmt;
+=======
+use crate::time::{ticks::TICKS_RESOLUTION, Signature, TicksTime};
+>>>>>>> use cargo fmt
 
 use crate::time::{ticks::TICKS_RESOLUTION, Signature, TicksTime};
 
