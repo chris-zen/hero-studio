@@ -21,7 +21,24 @@ More sub-projects will come depending on how I decide to build the UI.
 
 ## Running
 
+You will need to install [PortAudio](http://www.portaudio.com/download.html) before running the project as we're using as the [portaudio crate](https://docs.rs/crate/portaudio/0.7.0) has a dependency on it.
+
+If you get this error:
+
 ```
+error while loading shared libraries: libportaudio.so.2: cannot open shared object file: No such file or directory
+```
+
+then you should install `libportaudio`:
+
+```sh
+# ubuntu
+sudo apt-get install libportaudio2
+```
+
+Finally, you can run the project:
+
+```sh
 cd app-native
 cargo run --release
 ```
@@ -30,7 +47,7 @@ cargo run --release
 
 Tests can be run with:
 
-```
+```sh
 cargo test
 ```
 
