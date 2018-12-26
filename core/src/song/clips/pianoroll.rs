@@ -1,7 +1,7 @@
 use std::sync::{Arc, RwLock};
 
 use crate::song::{
-  clip::{Clip, ClipId},
+  clips::{Clip, ClipId},
   source::notes::NotesSource
 };
 

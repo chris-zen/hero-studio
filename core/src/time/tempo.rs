@@ -10,6 +10,24 @@ impl Tempo {
   }
 }
 
+impl From<Tempo> for f64 {
+  fn from(item: Tempo) -> Self {
+    item.0 as f64
+  }
+}
+
+impl From<Tempo> for u64 {
+  fn from(item: Tempo) -> Self {
+    item.0 as u64
+  }
+}
+
+impl From<Tempo> for u16 {
+  fn from(item: Tempo) -> Self {
+    item.0
+  }
+}
+
 #[cfg(test)]
 mod test {
 

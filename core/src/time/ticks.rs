@@ -1,9 +1,13 @@
 use std::{
   cmp::{min, Ordering},
-  ops::{Add, Sub}
+  ops::{Add, Sub, Mul}
 };
 
-pub const TICKS_RESOLUTION: u64 = 240;
+use crate::time::{
+  Tempo
+};
+
+pub const TICKS_RESOLUTION: u64 = 960;
 
 #[derive(Debug, Eq, Copy, Clone)]
 pub struct TicksTime(u64);
@@ -11,6 +15,10 @@ pub struct TicksTime(u64);
 impl TicksTime {
   pub fn new(ticks: u64) -> TicksTime {
     TicksTime(ticks)
+  }
+
+  pub fn zero() -> TicksTime {
+    TicksTime(0)
   }
 
   pub fn get_ticks(&self) -> u64 {
@@ -50,6 +58,25 @@ impl Sub for TicksTime {
   }
 }
 
+// impl Mul<Tempo> for TicksTime {
+//   type Output = TicksTime;
+//   fn mul(self, rhs: Tempo) -> Self {
+//     TicksTime::new(self.0 * rhs.get_value() as u64)
+//   }
+// }
+
+impl From<TicksTime> for f64 {
+  fn from(item: TicksTime) -> Self {
+    item.0 as f64
+  }
+}
+
+impl From<TicksTime> for u64 {
+  fn from(item: TicksTime) -> Self {
+    item.0 as u64
+  }
+}
+
 #[cfg(test)]
 mod test {
 
@@ -60,6 +87,12 @@ mod test {
   pub fn new() {
     let ticks_time = TicksTime::new(1234);
     assert_eq!(ticks_time.get_ticks(), 1234);
+  }
+
+  #[test]
+  pub fn zero() {
+    let ticks_time = TicksTime::zero();
+    assert_eq!(ticks_time.get_ticks(), 0);
   }
 
   #[test]

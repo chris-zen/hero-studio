@@ -21,7 +21,7 @@ impl BarsTime {
     }
   }
 
-  pub fn from_ticks_time(ticks_time: TicksTime, signature: Signature) -> BarsTime {
+  pub fn from_ticks(ticks_time: TicksTime, signature: Signature) -> BarsTime {
     let total_sixteenths = ticks_time.get_ticks() / TICKS_RESOLUTION;
     let num_sixteenths_per_beat = 16 / signature.get_note_value() as u64;
     let total_beats = total_sixteenths / num_sixteenths_per_beat;
@@ -49,7 +49,7 @@ impl BarsTime {
     self.ticks
   }
 
-  pub fn to_ticks_time(&self, signature: Signature) -> TicksTime {
+  pub fn to_ticks(&self, signature: Signature) -> TicksTime {
     let num_sixteenths_per_beat = 16 / signature.get_note_value() as u64;
     let num_ticks_per_beat = num_sixteenths_per_beat * TICKS_RESOLUTION;
     let num_ticks_per_bar = signature.get_num_beats() as u64 * num_ticks_per_beat;
@@ -82,7 +82,7 @@ mod test {
   }
 
   #[test]
-  pub fn from_ticks_time() {
+  pub fn from_ticks() {
     let ticks = TicksTime::new(
       TICKS_RESOLUTION * 4 * 3 * 10 + // 10 bars
           TICKS_RESOLUTION * 4 * 2 +  // 2 beats
@@ -90,7 +90,7 @@ mod test {
           30                          // 30 ticks
     );
 
-    let time = BarsTime::from_ticks_time(ticks, Signature::new(3, 4));
+    let time = BarsTime::from_ticks(ticks, Signature::new(3, 4));
     assert_eq!(time.get_bars(), 10);
     assert_eq!(time.get_beats(), 2);
     assert_eq!(time.get_sixteenths(), 1);
@@ -98,11 +98,11 @@ mod test {
   }
 
   #[test]
-  pub fn to_ticks_time() {
+  pub fn to_ticks() {
     let signature = Signature::new(3, 4);
     let ticks = TicksTime::new(123456789);
-    let time = BarsTime::from_ticks_time(ticks, signature);
-    let ticks = time.to_ticks_time(signature);
+    let time = BarsTime::from_ticks(ticks, signature);
+    let ticks = time.to_ticks(signature);
     assert_eq!(ticks.get_ticks(), 123456789);
   }
 }
