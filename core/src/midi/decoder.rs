@@ -298,7 +298,7 @@ mod tests {
     fn decode_pitch_bend() {
         let data = &vec![0b1110_0101u8, 0b0_1010101, 0b0_0101010];
         let mut dec = Decoder::new(data);
-        assert_eq!(dec.next(), Some(Message::PitchBend { channel: 0b0101, value: 0b0_1010101 }));
+        assert_eq!(dec.next(), Some(Message::PitchBend { channel: 0b0101, value: 0b0_01010101010101 }));
         assert_eq!(dec.next(), None);
     }
 

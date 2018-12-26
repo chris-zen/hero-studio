@@ -32,7 +32,9 @@ fn main() -> Result<(), Error> {
 
     let config = Config::from_file(config_path.as_str())?;
     let mut studio = Studio::new(config.clone());
-    studio.song_mut().set_loop_end_time(ClockTime::from_seconds(4.0));
+    studio.song_mut()
+        .get_transport_mut()
+        .set_loop_end_time(ClockTime::from_seconds(4.0));
     let studio_mutex = Arc::new(RwLock::new(studio));
 
     println!("{:#?}", config);

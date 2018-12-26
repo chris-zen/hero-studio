@@ -1,74 +1,42 @@
 pub mod io;
 pub mod source;
-pub mod clip;
+pub mod clips;
 pub mod track;
-
-use std::collections::BTreeMap;
+pub mod transport;
 
 use crate::time::{
-  Signature,
-  Tempo,
   SampleRate,
-  ClockTime,
-  TicksTime,
-  BarsTime,
-  clock,
-  TimeDriftCorrection
 };
 
-use self::track::Track;
+use self::{
+  transport::{
+    Transport,
+    Segment
+  },
+  track::{
+    Track,
+    TrackMedia
+  },
+};
 
-const DEFAULT_TEMPO: u16 = 120;
-const DEFAULT_SIGNATURE_NUM_BEATS: u8 = 4;
-const DEFAULT_SIGNATURE_NOTE_VALUE: u8 = 4;
 
 pub struct Song {
   name: String,
 
-  tempo: Tempo,
-  signature: Signature,
-
-  sample_rate: SampleRate,
-  time_drift_correction: TimeDriftCorrection,
-
-  playing: bool,
-  start_time: ClockTime,
-  current_time: ClockTime,
-  next_time: ClockTime,
-
-  loop_enabled: bool,
-  loop_start_time: ClockTime,
-  loop_end_time: ClockTime,
+  transport: Transport,
 
   tracks: Vec<Track>
-
-  // TODO arrangement
 }
 
 impl Song {
   pub fn new<T>(name: T, sample_rate: SampleRate) -> Song where T: Into<String> {
-    let mut song = Song {
+    Song {
       name: name.into(),
 
-      tempo: Tempo::new(DEFAULT_TEMPO),
-      signature: Signature::new(DEFAULT_SIGNATURE_NUM_BEATS, DEFAULT_SIGNATURE_NOTE_VALUE),
-
-      sample_rate: sample_rate,
-      time_drift_correction: TimeDriftCorrection::new(sample_rate),
-
-      playing: false,
-      start_time: ClockTime::zero(),
-      current_time: ClockTime::zero(),
-      next_time: ClockTime::zero(),
-
-      loop_enabled: true,
-      loop_start_time: ClockTime::zero(),
-      loop_end_time: ClockTime::zero(),
+      transport: Transport::new(sample_rate),
 
       tracks: Vec::new()
-    };
-    song.update_timing_constants();
-    song
+    }
   }
 
   pub fn set_name<T>(&mut self, name: T) where T: Into<String> {
@@ -79,116 +47,52 @@ impl Song {
     self.name.as_str()
   }
 
-  pub fn set_tempo(&mut self, tempo: Tempo) {
-    self.tempo = tempo;
-  }
-
-  pub fn get_tempo(&self) -> &Tempo {
-    &self.tempo
-  }
-
-  pub fn set_signature(&mut self, signature: Signature) {
-    self.signature = signature;
-  }
-
-  pub fn get_signature(&self) -> &Signature {
-    &self.signature
-  }
-
-  pub fn set_sample_rate(&mut self, sample_rate: SampleRate) {
-    self.sample_rate = sample_rate;
-    self.update_timing_constants();
-  }
-
-  pub fn get_sample_rate(&self) -> &SampleRate {
-    &self.sample_rate
-  }
-
-  pub fn is_playing(&self) -> bool {
-    self.playing
+  pub fn get_transport_mut(&mut self) -> &mut Transport {
+    &mut self.transport
   }
 
   pub fn play(&mut self, restart: bool) -> bool {
-    self.playing = !self.playing;
-    if restart {
-      self.current_time = self.start_time;
-      self.next_time = self.current_time;
-    }
-    self.playing
+    self.transport.play(restart);
+    self.transport.is_playing()
   }
 
   pub fn stop(&mut self) {
-    self.playing = false;
-  }
-
-  pub fn set_loop_enabled(&mut self, enabled: bool) {
-    self.loop_enabled = enabled;
-  }
-
-  pub fn is_loop_enabled(&self) -> bool {
-    self.loop_enabled
-  }
-
-  pub fn set_loop_start_time(&mut self, time: ClockTime) {
-    self.loop_start_time = time;
-  }
-
-  pub fn get_loop_start_time(&self) -> ClockTime {
-    self.loop_start_time
-  }
-
-  pub fn set_loop_end_time(&mut self, time: ClockTime) {
-    self.loop_end_time = time;
-  }
-
-  pub fn get_loop_end_time(&self) -> ClockTime {
-    self.loop_end_time
+    self.transport.stop();
   }
 
   ///! Process song play
   pub fn process(&mut self, samples: u32) {
-    if self.playing {
-      self.current_time = self.next_time;
-      let mut start_time = self.current_time;
-      let mut remaining_time = self.time_drift_correction.update(samples);
-
-      println!("[{:013?}] Err: {:?} Correction {:?}",
-        self.current_time.units(),
-        self.time_drift_correction.get_error_accumulated(),
-        self.time_drift_correction.get_last_correction());
-
-      while remaining_time > ClockTime::zero() {
-        self.next_time += remaining_time;
-        if self.loop_to_start(start_time, self.next_time) {
-          self.process_fragment(start_time, self.loop_end_time);
-          remaining_time = self.next_time - self.loop_end_time;
-          start_time = self.loop_start_time;
-          self.next_time = start_time;
-        }
-        else {
-          self.process_fragment(start_time, self.next_time);
-          remaining_time = ClockTime::zero();
-        }
+    if self.transport.is_playing() {
+      let mut segments = self.transport.segments_iterator(samples);
+      while let Some(segment) = segments.next(&self.transport) {
+        self.process_segment(&segment);
       }
+      self.transport.update_from_segments(&segments);
     }
 
     // TODO some devices might need to keep track of time even when not playing
   }
 
-  fn process_fragment(&mut self, start_time: ClockTime, end_time: ClockTime) {
-    println!("=> Processing [{:013?}, {:013?})", start_time.units(), end_time.units());
-  }
+  fn process_segment(&mut self, segment: &Segment) {
+    println!("=> Segment [{:013?}, {:013?})", segment.start_time.units(), segment.end_time.units());
 
-  ///! Update timing constants that change sporadically (ex. changes on sample rate, tempo, signature, ...)
-  fn update_timing_constants(&mut self) {
-    self.time_drift_correction = TimeDriftCorrection::new(self.sample_rate);
-    println!("Time error per sample = {:?} clock units", self.time_drift_correction.get_error_per_sample());
-  }
+    // let start_ticks = (start_time.units() as f64 * self.ticks_per_clock_unit).floor();
+    // let end_ticks = (end_time.units() as f64 * self.ticks_per_clock_unit).ceil();
 
-  ///! Determine whether or not not to move the song position to the start of the loop
-  fn loop_to_start(&self, prev_time: ClockTime, next_time: ClockTime) -> bool {
-    self.loop_enabled &&
-      prev_time < self.loop_end_time &&
-      self.loop_end_time <= next_time
+    for track in self.tracks.iter_mut() {
+      // let clips = track.clips_in_range(start_ticks, end_ticks);
+      match &track.media {
+        TrackMedia::Midi(midi_track) => {
+          // prepare buffer for midi_track.sink
+
+        },
+        TrackMedia::Audio(_audio_track) => {
+
+        },
+        TrackMedia::Instrument(_instrument_track) => {
+
+        }
+      }
+    }
   }
 }

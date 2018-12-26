@@ -8,7 +8,7 @@ pub const FEMTOS_PER_SECOND: u64 = 1_000_000_000_000_000;
 pub const ATTOS_PER_SECOND: u64 = 1_000_000_000_000_000_000;
 
 pub type UnitType = u64;
-pub const UNITS_PER_SECOND: UnitType = PICOS_PER_SECOND as UnitType;
+pub const UNITS_PER_SECOND: UnitType = NANOS_PER_SECOND as UnitType;
 
 ///! High resolution time
 #[derive(Debug, PartialOrd, PartialEq, Clone, Copy)]

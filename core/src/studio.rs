@@ -38,11 +38,11 @@ impl Studio {
     &self.config
   }
 
-  pub  fn song(&self) -> &Song {
+  pub fn song(&self) -> &Song {
     &self.song
   }
 
-  pub  fn song_mut(&mut self) -> &mut Song {
+  pub fn song_mut(&mut self) -> &mut Song {
     &mut self.song
   }
 

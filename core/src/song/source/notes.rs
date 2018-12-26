@@ -4,7 +4,7 @@ use std::collections::{
 };
 
 use crate::{
-  song::clip::ClipId,
+  song::clips::ClipId,
   time::TicksTime
 };
 

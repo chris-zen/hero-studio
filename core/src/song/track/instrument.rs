@@ -1,9 +1,9 @@
 use std::collections::BTreeMap;
 
 use crate::song::{
-  clip::{
+  clips::{
     ClipIndex,
-    notes::NotesClip
+    pianoroll::NotesClip
   },
   io::{AudioSink, NotesSource}
 };

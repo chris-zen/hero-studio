@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use crate::song::{
-  clip::{
+  clips::{
     ClipIndex,
     audio::AudioClip
   },
