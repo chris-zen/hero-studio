@@ -91,7 +91,7 @@ impl From<TicksTime> for u64 {
 mod test {
 
   use std::cmp::Ordering;
-  use super::TicksTime;
+  use super::{Signature, Tempo, TicksTime, clock};
 
   #[test]
   pub fn new() {
@@ -103,6 +103,23 @@ mod test {
   pub fn zero() {
     let ticks_time = TicksTime::zero();
     assert_eq!(ticks_time.0, 0);
+  }
+
+  #[test]
+  pub fn per_minute() {
+    let signature = Signature::new(4, 4);
+    let tempo = Tempo::new(120);
+    let ticks = TicksTime::per_minute(signature, tempo);
+    assert_eq!(ticks.0, 460800);
+  }
+
+  #[test]
+  pub fn to_clock() {
+    let signature = Signature::new(4, 4);
+    let tempo = Tempo::new(120);
+    let ticks = TicksTime::per_minute(signature, tempo);
+    let time = ticks.to_clock(signature, tempo);
+    assert_eq!(time.units() / clock::UNITS_PER_MINUTE, 1);
   }
 
   #[test]
@@ -146,5 +163,17 @@ mod test {
     let time2 = TicksTime::new(30);
     let result = time1 - time2;
     assert_eq!(result, TicksTime(70));
+  }
+
+  #[test]
+  pub fn f64_from() {
+    let time1 = TicksTime::new(1234);
+    assert_eq!(f64::from(time1), 1234.0);
+  }
+
+  #[test]
+  pub fn u64_from() {
+    let time1 = TicksTime::new(1234);
+    assert_eq!(u64::from(time1), 1234);
   }
 }

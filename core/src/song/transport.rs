@@ -98,16 +98,33 @@ impl Transport {
   pub fn play(&mut self, restart: bool) -> bool {
     self.playing = !self.playing;
     if restart {
-      self.current_time = self.start_time;
-      self.next_time = self.current_time;
+      self.reset_position();
     }
     self.playing
   }
 
   pub fn stop(&mut self) {
+    if !self.playing {
+      self.reset_position();
+    }
     self.playing = false;
   }
 
+  fn reset_position(&mut self) {
+    self.current_ticks = self.start_ticks;
+    self.next_ticks = self.current_ticks;
+
+    self.current_time = self.start_time;
+    self.next_time = self.current_time;
+  }
+
+  pub fn set_position(&mut self, position: BarsTime) {
+    self.current_ticks = position.to_ticks(self.signature);
+    self.next_ticks = self.current_ticks;
+
+    self.current_time = self.current_ticks.to_clock(self.signature, self.tempo);
+    self.next_time = self.current_time;
+  }
   pub fn get_position(&self) -> BarsTime {
     BarsTime::from_ticks(self.current_ticks, self.signature)
   }
