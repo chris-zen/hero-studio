@@ -1,4 +1,3 @@
-#![allow(unused_imports)]
 use std::sync::{Arc, RwLock};
 
 use failure;
