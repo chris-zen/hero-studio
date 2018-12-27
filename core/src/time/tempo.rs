@@ -1,3 +1,4 @@
+#[derive(Debug, Clone, Copy)]
 pub struct Tempo(u16);
 
 impl Tempo {

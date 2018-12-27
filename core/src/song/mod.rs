@@ -74,10 +74,9 @@ impl Song {
   }
 
   fn process_segment(&mut self, segment: &Segment) {
-    println!("=> Segment [{:013?}, {:013?})", segment.start_time.units(), segment.end_time.units());
-
-    // let start_ticks = (start_time.units() as f64 * self.ticks_per_clock_unit).floor();
-    // let end_ticks = (end_time.units() as f64 * self.ticks_per_clock_unit).ceil();
+    println!("=> Segment [{:06?}, {:06?}) [{:010?}, {:010?})",
+             u64::from(segment.start_ticks), u64::from(segment.end_ticks),
+             segment.start_time.units(), segment.end_time.units());
 
     for track in self.tracks.iter_mut() {
       // let clips = track.clips_in_range(start_ticks, end_ticks);
