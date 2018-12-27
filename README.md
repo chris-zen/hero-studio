@@ -21,11 +21,11 @@ More sub-projects will come depending on how I decide to build the UI.
 
 ## Running
 
-You will need to install [PortAudio](http://www.portaudio.com/download.html) before running the project as we're using as the [portaudio crate](https://docs.rs/crate/portaudio/0.7.0) has a dependency on it.
+You will need to install [PortAudio](http://www.portaudio.com/download.html) before running the project as we're using the [portaudio crate](https://docs.rs/crate/portaudio/0.7.0) which has a dependency on it.
 
 If you get this error:
 
-```
+```sh
 error while loading shared libraries: libportaudio.so.2: cannot open shared object file: No such file or directory
 ```
 
