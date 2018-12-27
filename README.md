@@ -36,11 +36,11 @@ cargo test
 
 ## Roadmap
 
-[ ] core: Basic transport logic with accurate timing: play, stop, loop
-[ ] core: Proper management of time and sync between different clocks: Audio, Midi, Host, Ticks
-[ ] core: Implement a basic metronome using MIDI notes.
-[ ] app-native: Build MIDI output abstraction to send MIDI events to a device using CoreMIDI as an initial impl.
-[ ] core: Filling MIDI output buffers from the Song clips (initially choose one type of clip between pianoroll, step-sequencer, drum-box).
-[ ] app-native: Allow MIDI configuration through `studio.toml`
-[ ] Start exploring UI integration
-[ ] ...
+- [ ] core: Basic transport logic with accurate timing: play, stop, loop
+- [ ] core: Proper management of time and sync between different clocks: Audio, Midi, Host, Ticks
+- [ ] core: Implement a basic metronome using MIDI notes.
+- [ ] app-native: Build MIDI output abstraction to send MIDI events to a device using CoreMIDI as an initial impl.
+- [ ] core: Filling MIDI output buffers from the Song clips (initially choose one type of clip between pianoroll, step-sequencer, drum-box).
+- [ ] app-native: Allow MIDI configuration through `studio.toml`
+- [ ] Start exploring UI integration
+- [ ] ...
