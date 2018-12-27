@@ -4,7 +4,10 @@ use std::{
 };
 
 use crate::time::{
-  Tempo
+  Tempo,
+  Signature,
+  ClockTime,
+  clock
 };
 
 pub const TICKS_RESOLUTION: u64 = 960;
@@ -21,8 +24,15 @@ impl TicksTime {
     TicksTime(0)
   }
 
-  pub fn get_ticks(&self) -> u64 {
-    self.0
+  pub fn per_minute(signature: Signature, tempo: Tempo) -> TicksTime {
+    let ticks_per_beat = TICKS_RESOLUTION * 16 / signature.get_note_value() as u64;
+    TicksTime::new(ticks_per_beat * u64::from(tempo))
+  }
+
+  pub fn to_clock(&self, signature: Signature, tempo: Tempo) -> ClockTime {
+    let ticks_per_minute = TicksTime::per_minute(signature, tempo).0;
+    let clock_units = self.0 * clock::UNITS_PER_MINUTE / ticks_per_minute;
+    ClockTime::new(clock_units)
   }
 }
 
@@ -86,13 +96,13 @@ mod test {
   #[test]
   pub fn new() {
     let ticks_time = TicksTime::new(1234);
-    assert_eq!(ticks_time.get_ticks(), 1234);
+    assert_eq!(ticks_time.0, 1234);
   }
 
   #[test]
   pub fn zero() {
     let ticks_time = TicksTime::zero();
-    assert_eq!(ticks_time.get_ticks(), 0);
+    assert_eq!(ticks_time.0, 0);
   }
 
   #[test]

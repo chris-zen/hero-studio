@@ -9,7 +9,8 @@ use portaudio;
 use hero_studio_core::{
     studio::Studio,
     config::Config,
-    time::ClockTime
+    time::ClockTime,
+    time::BarsTime
 };
 
 mod midi;
@@ -34,7 +35,7 @@ fn main() -> Result<(), Error> {
     let mut studio = Studio::new(config.clone());
     studio.song_mut()
         .get_transport_mut()
-        .set_loop_end_time(ClockTime::from_seconds(4.0));
+        .set_loop_end(BarsTime::new(2, 0, 0, 0));
     let studio_mutex = Arc::new(RwLock::new(studio));
 
     println!("{:#?}", config);

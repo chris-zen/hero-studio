@@ -1,14 +1,23 @@
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 
-use super::SampleRate;
+use super::{
+  Signature,
+  Tempo,
+  TicksTime,
+  ticks,
+  SampleRate
+};
 
 pub const NANOS_PER_SECOND: u64 = 1_000_000_000;
-pub const PICOS_PER_SECOND: u64 = 1_000_000_000_000;
-pub const FEMTOS_PER_SECOND: u64 = 1_000_000_000_000_000;
-pub const ATTOS_PER_SECOND: u64 = 1_000_000_000_000_000_000;
+// pub const PICOS_PER_SECOND: u64 = 1_000_000_000_000;
+// pub const FEMTOS_PER_SECOND: u64 = 1_000_000_000_000_000;
+// pub const ATTOS_PER_SECOND: u64 = 1_000_000_000_000_000_000;
 
 pub type UnitType = u64;
 pub const UNITS_PER_SECOND: UnitType = NANOS_PER_SECOND as UnitType;
+
+const SECONDS_PER_MINUTE: u64 = 60;
+pub const UNITS_PER_MINUTE: u64 = UNITS_PER_SECOND * SECONDS_PER_MINUTE;
 
 ///! High resolution time
 #[derive(Debug, PartialOrd, PartialEq, Clone, Copy)]
@@ -33,6 +42,12 @@ impl ClockTime {
 
   pub fn units(&self) -> UnitType {
     self.0
+  }
+
+  pub fn to_ticks(&self, signature: Signature, tempo: Tempo) -> TicksTime {
+    let ticks_per_minute = u64::from(TicksTime::per_minute(signature, tempo));
+    let ticks = self.0 * ticks_per_minute / UNITS_PER_MINUTE;
+    TicksTime::new(ticks)
   }
 }
 
