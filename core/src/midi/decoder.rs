@@ -378,11 +378,7 @@ mod tests {
       dec.next(),
       Some(Message::PitchBend {
         channel: 0b0101,
-<<<<<<< HEAD
         value: 0b0_01010101010101
-=======
-        value: 0b0_1010101
->>>>>>> use cargo fmt
       })
     );
     assert_eq!(dec.next(), None);
