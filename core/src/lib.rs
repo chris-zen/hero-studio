@@ -1,11 +1,9 @@
+// FIXME Remove when the code gets more stable
+#![allow(unused_imports)]
+#![allow(dead_code)]
 pub mod color;
-
-pub mod midi;
-
 pub mod config;
-
-pub mod studio;
-
-pub mod time;
-
+pub mod midi;
 pub mod song;
+pub mod studio;
+pub mod time;

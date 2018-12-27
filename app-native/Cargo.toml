@@ -9,5 +9,4 @@ hero-studio-core = { path = "../core" }
 
 failure = "0.1.3"
 failure_derive = "*"
-
 portaudio = "0.7.0"
