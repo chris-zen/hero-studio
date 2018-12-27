@@ -1,11 +1,4 @@
-use crate::time::{
-  ClockTime,
-  TicksTime,
-  BarsTime,
-  Tempo,
-  Signature,
-  SampleRate
-};
+use crate::time::{BarsTime, ClockTime, SampleRate, Signature, Tempo, TicksTime};
 
 const SECONDS_PER_MINUTE: f64 = 60.0;
 
@@ -18,18 +11,19 @@ pub struct TicksDriftCorrection {
 }
 
 impl TicksDriftCorrection {
-
   pub fn new(signature: Signature, tempo: Tempo, sample_rate: SampleRate) -> TicksDriftCorrection {
     let ticks_per_beat = f64::from(BarsTime::new(0, 1, 0, 0).to_ticks(signature));
-    let ticks_per_sample = ticks_per_beat * f64::from(tempo) / (SECONDS_PER_MINUTE * sample_rate as f64);
-    let error_per_second = f64::from(ClockTime::from_seconds(1.0).to_ticks(signature, tempo)) - ticks_per_sample * sample_rate as f64;
+    let ticks_per_sample =
+      ticks_per_beat * f64::from(tempo) / (SECONDS_PER_MINUTE * sample_rate as f64);
+    let error_per_second = f64::from(ClockTime::from_seconds(1.0).to_ticks(signature, tempo))
+      - ticks_per_sample * sample_rate as f64;
     let error_per_sample = error_per_second / sample_rate as f64;
 
     TicksDriftCorrection {
       ticks_per_sample: ticks_per_sample,
       error_per_sample: error_per_sample,
       error_accumulated: 0.0,
-      last_correction: 0.0
+      last_correction: 0.0,
     }
   }
 
@@ -51,14 +45,14 @@ impl TicksDriftCorrection {
 
   pub fn next(&mut self, samples: u32) -> TicksTime {
     let samples_ticks = self.ticks_per_sample * samples as f64;
-    let samples_error = samples_ticks - samples_ticks.round() + self.error_per_sample * samples as f64;
+    let samples_error =
+      samples_ticks - samples_ticks.round() + self.error_per_sample * samples as f64;
     let total_error = self.error_accumulated + samples_error;
     if total_error.abs() >= 1.0 {
       self.last_correction = total_error.round();
       self.error_accumulated = total_error - self.last_correction;
       TicksTime::new((samples_ticks + self.last_correction) as u64)
-    }
-    else {
+    } else {
       self.last_correction = 0.0;
       self.error_accumulated = total_error;
       TicksTime::new(samples_ticks as u64)
@@ -69,14 +63,17 @@ impl TicksDriftCorrection {
 #[cfg(test)]
 mod test {
 
-  use super::{Signature, Tempo, TicksTime};
   use super::TicksDriftCorrection;
+  use super::{Signature, Tempo, TicksTime};
 
   #[test]
   pub fn ticks_drift_correction_new() {
     let correction = TicksDriftCorrection::new(Signature::new(4, 4), Tempo::new(60), 44100);
     assert_eq!(correction.ticks_per_sample, 0.08707482993197278);
-    assert_eq!(correction.error_per_sample, 0.000000000000000010311731312618234);
+    assert_eq!(
+      correction.error_per_sample,
+      0.000000000000000010311731312618234
+    );
     assert_eq!(correction.error_accumulated, 0.0);
     assert_eq!(correction.last_correction, 0.0);
   }

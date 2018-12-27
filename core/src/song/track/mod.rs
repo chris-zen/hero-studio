@@ -5,12 +5,8 @@ pub mod midi;
 use crate::color::Color;
 
 use crate::song::{
-  track::{
-    audio::AudioTrack,
-    instrument::InstrumentTrack,
-    midi::MidiTrack
-  },
-  clips::Clip
+  clips::Clip,
+  track::{audio::AudioTrack, instrument::InstrumentTrack, midi::MidiTrack},
 };
 
 use crate::time::TicksTime;
@@ -33,11 +29,14 @@ pub struct Track {
 
   pub media: TrackMedia,
 
-  clips: Vec<Clip>
+  clips: Vec<Clip>,
 }
 
 impl Track {
-  pub fn new<T>(name: T, color: Color, media: TrackMedia) -> Track where T: Into<String> {
+  pub fn new<T>(name: T, color: Color, media: TrackMedia) -> Track
+  where
+    T: Into<String>,
+  {
     Track {
       name: name.into(),
       color: color,
@@ -47,11 +46,11 @@ impl Track {
       volume: 1.0,
       pan: 0.0,
       media: media,
-      clips: Vec::new()
+      clips: Vec::new(),
     }
   }
 
-  pub fn clips_in_range(&self, start: TicksTime, until: TicksTime) -> impl Iterator<Item=&Clip> {
+  pub fn clips_in_range(&self, start: TicksTime, until: TicksTime) -> impl Iterator<Item = &Clip> {
     // TODO use an Interval Tree (http://www.davismol.net/2016/02/07/data-structures-augmented-interval-tree-to-search-for-interval-overlapping/)
     self.clips.iter().filter(move |clip| {
       let end = clip.start + clip.length;

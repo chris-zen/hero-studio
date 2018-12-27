@@ -31,5 +31,4 @@ mod test {
     assert_eq!(color.get_value(), "rgb(10,20,30)");
   }
 
-
 }

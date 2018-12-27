@@ -1,12 +1,6 @@
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 
-use super::{
-  Signature,
-  Tempo,
-  TicksTime,
-  ticks,
-  SampleRate
-};
+use super::{ticks, SampleRate, Signature, Tempo, TicksTime};
 
 pub const NANOS_PER_SECOND: u64 = 1_000_000_000;
 // pub const PICOS_PER_SECOND: u64 = 1_000_000_000_000;

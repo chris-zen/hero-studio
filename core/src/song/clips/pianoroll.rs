@@ -2,7 +2,7 @@ use std::sync::{Arc, RwLock};
 
 use crate::song::{
   clips::{Clip, ClipId},
-  source::notes::NotesSource
+  source::notes::NotesSource,
 };
 
 pub struct Notes {

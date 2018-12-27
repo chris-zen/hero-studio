@@ -1,11 +1,8 @@
 use std::collections::BTreeMap;
 
 use crate::song::{
-  clips::{
-    ClipIndex,
-    pianoroll::NotesClip
-  },
-  io::{AudioSink, NotesSource}
+  clips::{pianoroll::NotesClip, ClipIndex},
+  io::{AudioSink, NotesSource},
 };
 
 pub struct InstrumentTrack {

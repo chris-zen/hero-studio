@@ -1,15 +1,7 @@
 use crate::time::{
-  Signature,
-  Tempo,
-  SampleRate,
-  ClockTime,
-  TicksTime,
-  BarsTime,
-  clock,
-  drift_correction::ClockDriftCorrection,
-  drift_correction::TicksDriftCorrection
+  clock, drift_correction::ClockDriftCorrection, drift_correction::TicksDriftCorrection, BarsTime,
+  ClockTime, SampleRate, Signature, Tempo, TicksTime,
 };
-
 
 const DEFAULT_TEMPO: u16 = 120;
 const DEFAULT_SIGNATURE_NUM_BEATS: u8 = 4;
@@ -154,9 +146,14 @@ impl Transport {
   }
 
   pub(super) fn segments_iterator(&mut self, samples: u32) -> SegmentsIterator {
-    SegmentsIterator::new(samples, self,
-                          self.next_ticks, &self.ticks_drift_correction,
-                          self.next_time, &self.clock_drift_correction)
+    SegmentsIterator::new(
+      samples,
+      self,
+      self.next_ticks,
+      &self.ticks_drift_correction,
+      self.next_time,
+      &self.clock_drift_correction,
+    )
   }
 
   pub(super) fn update_from_segments(&mut self, segments: &SegmentsIterator) {
@@ -171,18 +168,23 @@ impl Transport {
 
   ///! Update timing constants that change sporadically (ex. changes on sample rate, tempo, signature, ...)
   fn update_timing_constants(&mut self) {
-    self.ticks_drift_correction = TicksDriftCorrection::new(self.signature, self.tempo, self.sample_rate);
-    println!("Ticks error per sample = {:?} ticks", self.ticks_drift_correction.get_error_per_sample());
+    self.ticks_drift_correction =
+      TicksDriftCorrection::new(self.signature, self.tempo, self.sample_rate);
+    println!(
+      "Ticks error per sample = {:?} ticks",
+      self.ticks_drift_correction.get_error_per_sample()
+    );
 
     self.clock_drift_correction = ClockDriftCorrection::new(self.sample_rate);
-    println!("Clock error per sample = {:?} clock units", self.clock_drift_correction.get_error_per_sample());
+    println!(
+      "Clock error per sample = {:?} clock units",
+      self.clock_drift_correction.get_error_per_sample()
+    );
   }
 
   ///! Determine whether or not not to move the song position to the start of the loop
   fn loop_to_start(&self, prev_ticks: TicksTime, next_ticks: TicksTime) -> bool {
-    self.loop_enabled &&
-      prev_ticks < self.loop_end &&
-      self.loop_end <= next_ticks
+    self.loop_enabled && prev_ticks < self.loop_end && self.loop_end <= next_ticks
   }
 }
 
@@ -203,26 +205,31 @@ pub struct SegmentsIterator {
   current_ticks: TicksTime,
   next_ticks: TicksTime,
   remaining_ticks: TicksTime,
-  ticks_drift_correction: TicksDriftCorrection
+  ticks_drift_correction: TicksDriftCorrection,
 }
 
 impl SegmentsIterator {
-
-  fn new(samples: u32, transport: &Transport,
-         next_ticks: TicksTime, ticks_drift_correction: &TicksDriftCorrection,
-         next_time: ClockTime, clock_drift_correction: &ClockDriftCorrection) -> SegmentsIterator {
-
+  fn new(
+    samples: u32,
+    transport: &Transport,
+    next_ticks: TicksTime,
+    ticks_drift_correction: &TicksDriftCorrection,
+    next_time: ClockTime,
+    clock_drift_correction: &ClockDriftCorrection,
+  ) -> SegmentsIterator {
     let mut ticks_drift_correction = ticks_drift_correction.clone();
     let mut clock_drift_correction = clock_drift_correction.clone();
 
-    println!("[{:?}] <{:010?}> Err: {:?} Correction {:?} <{:010?}> Err: {:?} Correction {:?}",
+    println!(
+      "[{:?}] <{:010?}> Err: {:?} Correction {:?} <{:010?}> Err: {:?} Correction {:?}",
       BarsTime::from_ticks(next_ticks, transport.signature),
       u64::from(next_ticks),
       ticks_drift_correction.get_error_accumulated(),
       ticks_drift_correction.get_last_correction(),
       next_time.units(),
       clock_drift_correction.get_error_accumulated(),
-      clock_drift_correction.get_last_correction());
+      clock_drift_correction.get_last_correction()
+    );
 
     let remaining_ticks = ticks_drift_correction.next(samples);
     let remaining_time = clock_drift_correction.next(samples);
@@ -249,7 +256,9 @@ impl SegmentsIterator {
       let end_time = self.current_time + self.remaining_time;
 
       if transport.loop_to_start(self.current_ticks, end_ticks) {
-        let loop_end_time = transport.loop_end.to_clock(transport.signature, transport.tempo);
+        let loop_end_time = transport
+          .loop_end
+          .to_clock(transport.signature, transport.tempo);
         let segment = Segment {
           start_ticks: self.current_ticks,
           end_ticks: transport.loop_end,
@@ -258,16 +267,17 @@ impl SegmentsIterator {
         };
         self.next_ticks = transport.loop_start;
         self.remaining_ticks = end_ticks - transport.loop_end;
-        self.next_time = transport.loop_start.to_clock(transport.signature, transport.tempo);
+        self.next_time = transport
+          .loop_start
+          .to_clock(transport.signature, transport.tempo);
         self.remaining_time = end_time - loop_end_time;
         Some(segment)
-      }
-      else {
+      } else {
         let segment = Segment {
           start_ticks: self.current_ticks,
           end_ticks: end_ticks,
           start_time: self.current_time,
-          end_time: end_time
+          end_time: end_time,
         };
         self.next_ticks = end_ticks;
         self.remaining_ticks = TicksTime::zero();
@@ -275,8 +285,7 @@ impl SegmentsIterator {
         self.remaining_time = ClockTime::zero();
         Some(segment)
       }
-    }
-    else {
+    } else {
       None
     }
   }

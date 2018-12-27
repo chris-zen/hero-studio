@@ -1,17 +1,13 @@
 use std::fmt;
 
-use crate::time::{
-  Signature,
-  TicksTime,
-  ticks::TICKS_RESOLUTION
-};
+use crate::time::{ticks::TICKS_RESOLUTION, Signature, TicksTime};
 
 #[derive(PartialEq)]
 pub struct BarsTime {
   bars: u16,
   beats: u16,
   sixteenths: u16,
-  ticks: u16
+  ticks: u16,
 }
 
 impl BarsTime {
@@ -68,9 +64,14 @@ impl BarsTime {
 
 impl fmt::Debug for BarsTime {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    write!(f, "{:05}:{:02}:{:02}:{:03}",
-           self.bars + 1, self.beats + 1,
-           self.sixteenths + 1, self.ticks)
+    write!(
+      f,
+      "{:05}:{:02}:{:02}:{:03}",
+      self.bars + 1,
+      self.beats + 1,
+      self.sixteenths + 1,
+      self.ticks
+    )
   }
 }
 
@@ -78,11 +79,7 @@ impl fmt::Debug for BarsTime {
 mod test {
 
   use super::BarsTime;
-  use crate::time::{
-    ticks::TicksTime,
-    ticks::TICKS_RESOLUTION,
-    Signature,
-  };
+  use crate::time::{ticks::TicksTime, ticks::TICKS_RESOLUTION, Signature};
 
   #[test]
   pub fn new() {
@@ -99,7 +96,7 @@ mod test {
       TICKS_RESOLUTION * 4 * 3 * 10 + // 10 bars
           TICKS_RESOLUTION * 4 * 2 +  // 2 beats
           TICKS_RESOLUTION     +      // 1 sixteens
-          30                          // 30 ticks
+          30, // 30 ticks
     );
 
     let time = BarsTime::from_ticks(ticks, Signature::new(3, 4));

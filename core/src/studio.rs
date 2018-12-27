@@ -7,20 +7,22 @@ pub type Seconds = f64;
 pub struct ProcessingTime {
   pub current: Seconds,
   pub input: Seconds,
-  pub output: Seconds
+  pub output: Seconds,
 }
 
 impl ProcessingTime {
   pub fn new(current: Seconds, input: Seconds, output: Seconds) -> ProcessingTime {
     ProcessingTime {
-      current, input, output
+      current,
+      input,
+      output,
     }
   }
 }
 
 pub struct Studio {
   config: Config,
-  song: Song
+  song: Song,
 }
 
 unsafe impl Send for Studio {}
@@ -30,7 +32,7 @@ impl Studio {
     let sample_rate = config.audio.sample_rate;
     Studio {
       config,
-      song: Song::new("untitled", sample_rate)
+      song: Song::new("untitled", sample_rate),
     }
   }
 
@@ -50,16 +52,15 @@ impl Studio {
     self.song.play(restart);
   }
 
-  pub fn midi_handler(&mut self) {
+  pub fn midi_handler(&mut self) {}
 
-  }
-
-  pub fn audio_handler(&mut self,
-                       _time: ProcessingTime,
-                       frames: usize,
-                       _in_buffer: &[f32],
-                       _out_buffer: &mut [f32]) {
-
+  pub fn audio_handler(
+    &mut self,
+    _time: ProcessingTime,
+    frames: usize,
+    _in_buffer: &[f32],
+    _out_buffer: &mut [f32],
+  ) {
     // retrieve midi events from the armed track's input port
     // retrieve midi events from the tracks from time.output
     // schedule midi events to the output ports

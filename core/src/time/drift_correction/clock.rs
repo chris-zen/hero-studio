@@ -1,8 +1,4 @@
-use crate::time::{
-  clock,
-  ClockTime,
-  SampleRate
-};
+use crate::time::{clock, ClockTime, SampleRate};
 
 #[derive(Clone)]
 pub struct ClockDriftCorrection {
@@ -13,13 +9,12 @@ pub struct ClockDriftCorrection {
 }
 
 impl ClockDriftCorrection {
-
   pub fn new(sample_rate: SampleRate) -> ClockDriftCorrection {
     ClockDriftCorrection {
       time_per_sample: ClockTime::from_samples(1, sample_rate),
       error_per_sample: ClockDriftCorrection::error_per_sample(sample_rate),
       error_accumulated: 0.0,
-      last_correction: 0.0
+      last_correction: 0.0,
     }
   }
 
@@ -52,8 +47,7 @@ impl ClockDriftCorrection {
       self.last_correction = total_error.round();
       self.error_accumulated = total_error - self.last_correction;
       samples_time + ClockTime::new(self.last_correction as clock::UnitType)
-    }
-    else {
+    } else {
       self.last_correction = 0.0;
       self.error_accumulated = total_error;
       samples_time
@@ -64,8 +58,8 @@ impl ClockDriftCorrection {
 #[cfg(test)]
 mod test {
 
-  use super::ClockTime;
   use super::ClockDriftCorrection;
+  use super::ClockTime;
 
   #[test]
   pub fn clock_drift_correction_new() {

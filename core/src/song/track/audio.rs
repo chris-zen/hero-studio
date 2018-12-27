@@ -1,11 +1,8 @@
 use std::collections::BTreeMap;
 
 use crate::song::{
-  clips::{
-    ClipIndex,
-    audio::AudioClip
-  },
-  io::{AudioSource, AudioSink}
+  clips::{audio::AudioClip, ClipIndex},
+  io::{AudioSink, AudioSource},
 };
 
 pub struct AudioTrack {
