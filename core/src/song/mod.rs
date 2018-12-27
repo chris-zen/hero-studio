@@ -1,45 +1,42 @@
+pub mod clips;
 pub mod io;
 pub mod source;
-pub mod clips;
 pub mod track;
 pub mod transport;
 
-use crate::time::{
-  SampleRate,
-};
+use crate::time::SampleRate;
 
 use self::{
-  transport::{
-    Transport,
-    Segment
-  },
-  track::{
-    Track,
-    TrackMedia
-  },
+  track::{Track, TrackMedia},
+  transport::{Segment, Transport},
 };
-
 
 pub struct Song {
   name: String,
 
   transport: Transport,
 
-  tracks: Vec<Track>
+  tracks: Vec<Track>,
 }
 
 impl Song {
-  pub fn new<T>(name: T, sample_rate: SampleRate) -> Song where T: Into<String> {
+  pub fn new<T>(name: T, sample_rate: SampleRate) -> Song
+  where
+    T: Into<String>,
+  {
     Song {
       name: name.into(),
 
       transport: Transport::new(sample_rate),
 
-      tracks: Vec::new()
+      tracks: Vec::new(),
     }
   }
 
-  pub fn set_name<T>(&mut self, name: T) where T: Into<String> {
+  pub fn set_name<T>(&mut self, name: T)
+  where
+    T: Into<String>,
+  {
     self.name = name.into();
   }
 
@@ -74,9 +71,13 @@ impl Song {
   }
 
   fn process_segment(&mut self, segment: &Segment) {
-    println!("=> Segment [{:06?}, {:06?}) [{:010?}, {:010?})",
-             u64::from(segment.start_ticks), u64::from(segment.end_ticks),
-             segment.start_time.units(), segment.end_time.units());
+    println!(
+      "=> Segment [{:06?}, {:06?}) [{:010?}, {:010?})",
+      u64::from(segment.start_ticks),
+      u64::from(segment.end_ticks),
+      segment.start_time.units(),
+      segment.end_time.units()
+    );
 
     for track in self.tracks.iter_mut() {
       // let clips = track.clips_in_range(start_ticks, end_ticks);
@@ -84,13 +85,9 @@ impl Song {
         TrackMedia::Midi(midi_track) => {
           // prepare buffer for midi_track.sink
 
-        },
-        TrackMedia::Audio(_audio_track) => {
-
-        },
-        TrackMedia::Instrument(_instrument_track) => {
-
         }
+        TrackMedia::Audio(_audio_track) => {}
+        TrackMedia::Instrument(_instrument_track) => {}
       }
     }
   }

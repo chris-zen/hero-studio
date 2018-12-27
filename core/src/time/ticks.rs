@@ -1,14 +1,9 @@
 use std::{
   cmp::{min, Ordering},
-  ops::{Add, Sub, Mul}
+  ops::{Add, Mul, Sub},
 };
 
-use crate::time::{
-  Tempo,
-  Signature,
-  ClockTime,
-  clock
-};
+use crate::time::{clock, ClockTime, Signature, Tempo};
 
 pub const TICKS_RESOLUTION: u64 = 960;
 
@@ -38,20 +33,20 @@ impl TicksTime {
 
 impl Ord for TicksTime {
   fn cmp(&self, other: &TicksTime) -> Ordering {
-      self.0.cmp(&other.0)
+    self.0.cmp(&other.0)
   }
 }
 
 impl PartialOrd for TicksTime {
-    fn partial_cmp(&self, other: &TicksTime) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
+  fn partial_cmp(&self, other: &TicksTime) -> Option<Ordering> {
+    Some(self.cmp(other))
+  }
 }
 
 impl PartialEq for TicksTime {
-    fn eq(&self, other: &TicksTime) -> bool {
-        self.0 == other.0
-    }
+  fn eq(&self, other: &TicksTime) -> bool {
+    self.0 == other.0
+  }
 }
 
 impl Add for TicksTime {
@@ -90,8 +85,8 @@ impl From<TicksTime> for u64 {
 #[cfg(test)]
 mod test {
 
+  use super::{clock, Signature, Tempo, TicksTime};
   use std::cmp::Ordering;
-  use super::{Signature, Tempo, TicksTime, clock};
 
   #[test]
   pub fn new() {

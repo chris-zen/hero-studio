@@ -1,20 +1,15 @@
 use std::collections::BTreeMap;
 
 use crate::song::{
-  clips::{
-    ClipIndex,
-    pianoroll::NotesClip
-  },
-  io::{NotesSource, NotesSink}
+  clips::{pianoroll::NotesClip, ClipIndex},
+  io::{NotesSink, NotesSource},
 };
 
 pub struct MidiTrack {
   source: NotesSource,
   sink: NotesSink,
 
-  clips: BTreeMap<ClipIndex, NotesClip>
+  clips: BTreeMap<ClipIndex, NotesClip>,
 }
 
-impl MidiTrack {
-
-}
+impl MidiTrack {}

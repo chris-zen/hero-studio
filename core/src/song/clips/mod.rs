@@ -15,4 +15,3 @@ pub struct Clip {
   pub start: TicksTime,
   pub length: TicksTime,
 }
-
