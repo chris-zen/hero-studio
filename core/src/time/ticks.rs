@@ -1,6 +1,6 @@
 use std::{
   cmp::{min, Ordering},
-  ops::{Add, Mul, Sub},
+  ops::{Add, AddAssign, Sub, SubAssign, Mul, Div},
 };
 
 use crate::time::{clock, ClockTime, Signature, Tempo};
@@ -56,10 +56,29 @@ impl Add for TicksTime {
   }
 }
 
+impl AddAssign for TicksTime {
+  fn add_assign(&mut self, rhs: TicksTime) {
+    *self = *self + rhs;
+  }
+}
+
 impl Sub for TicksTime {
   type Output = TicksTime;
   fn sub(self, rhs: TicksTime) -> Self {
     TicksTime::new(self.0 - min(self.0, rhs.0))
+  }
+}
+
+impl SubAssign for TicksTime {
+  fn sub_assign(&mut self, rhs: TicksTime) {
+    *self = *self - rhs;
+  }
+}
+
+impl Div<u64> for TicksTime {
+  type Output = TicksTime;
+  fn div(self, rhs: u64) -> Self {
+    TicksTime::new(self.0 / rhs)
   }
 }
 
@@ -158,6 +177,13 @@ mod test {
     let time2 = TicksTime::new(30);
     let result = time1 - time2;
     assert_eq!(result, TicksTime(70));
+  }
+
+  #[test]
+  pub fn div() {
+    let time1 = TicksTime::new(100);
+    let result = time1 / 5;
+    assert_eq!(result, TicksTime(20));
   }
 
   #[test]
