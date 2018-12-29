@@ -20,6 +20,10 @@ impl BarsTime {
     }
   }
 
+  pub fn from_bars(bars: u16) -> BarsTime {
+    BarsTime::new(bars, 0, 0, 0)
+  }
+
   pub fn from_ticks(ticks_time: TicksTime, signature: Signature) -> BarsTime {
     let num_ticks = u64::from(ticks_time);
     let total_sixteenths = num_ticks / TICKS_RESOLUTION;
@@ -88,6 +92,15 @@ mod test {
     assert_eq!(time.get_beats(), 1);
     assert_eq!(time.get_sixteenths(), 2);
     assert_eq!(time.get_ticks(), 100);
+  }
+
+  #[test]
+  pub fn from_bars() {
+    let time = BarsTime::from_bars(2);
+    assert_eq!(time.get_bars(), 2);
+    assert_eq!(time.get_beats(), 0);
+    assert_eq!(time.get_sixteenths(), 0);
+    assert_eq!(time.get_ticks(), 0);
   }
 
   #[test]

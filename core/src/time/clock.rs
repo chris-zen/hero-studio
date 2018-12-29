@@ -38,6 +38,10 @@ impl ClockTime {
     self.0
   }
 
+  pub fn to_seconds(&self) -> f64 {
+    self.0 as f64 / UNITS_PER_SECOND as f64
+  }
+
   pub fn to_ticks(&self, signature: Signature, tempo: Tempo) -> TicksTime {
     let ticks_per_minute = u64::from(TicksTime::per_minute(signature, tempo));
     let ticks = self.0 * ticks_per_minute / UNITS_PER_MINUTE;

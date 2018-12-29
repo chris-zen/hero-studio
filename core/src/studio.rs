@@ -56,7 +56,7 @@ impl Studio {
 
   pub fn audio_handler(
     &mut self,
-    _time: ProcessingTime,
+    time: ProcessingTime,
     frames: usize,
     _in_buffer: &[f32],
     _out_buffer: &mut [f32],
@@ -66,6 +66,6 @@ impl Studio {
     // schedule midi events to the output ports
     // process the audio for time.output taking into consideration the midi events
 
-    self.song.process(frames as u32);
+    self.song.process(time.output, frames as u32);
   }
 }
