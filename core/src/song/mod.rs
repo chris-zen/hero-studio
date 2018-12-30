@@ -3,63 +3,15 @@ pub mod io;
 pub mod source;
 pub mod track;
 pub mod transport;
+pub mod metronome;
 
 use crate::time::{SampleRate, Signature, TicksTime, BarsTime};
 
 use self::{
   track::{Track, TrackMedia},
   transport::{Segment, Transport},
+  metronome::Metronome,
 };
-
-pub struct Metronome {
-  signature: Signature,
-  period: TicksTime,
-  ticks: TicksTime
-}
-
-impl Metronome {
-  pub fn new(transport: &Transport) -> Metronome {
-    let signature = *transport.get_signature();
-    let rythm = signature.get_num_beats() as u64;
-    let period = BarsTime::from_bars(1).to_ticks(signature) / rythm;
-    Metronome {
-      signature: signature,
-      period: period,
-      ticks: TicksTime::zero()
-    }
-  }
-
-  pub fn update_signature(&mut self, signature: Signature) {
-    self.signature = signature;
-    // TODO
-  }
-
-  pub fn update_position(&mut self, position: TicksTime) {
-    // TODO
-  }
-
-  pub fn process_segment(&mut self, segment: &Segment) {
-    let mut segment_length = segment.end_ticks - segment.start_ticks;
-    if self.ticks >= segment_length {
-      self.ticks -= segment_length;
-    }
-    else {
-      segment_length -= self.ticks;
-      while segment_length > TicksTime::zero() {
-        let tick_time = segment.end_ticks - segment_length;
-        println!("Metronome: tick {:?}", BarsTime::from_ticks(tick_time, self.signature));
-        if self.period < segment_length {
-          segment_length -= self.period;
-          self.ticks = self.period;
-        }
-        else {
-          self.ticks = self.period - segment_length;
-          segment_length = TicksTime::zero();
-        }
-      }
-    }
-  }
-}
 
 pub struct Song {
   name: String,
@@ -77,7 +29,7 @@ impl Song {
     T: Into<String>,
   {
     let transport = Transport::new(sample_rate);
-    let metronome = Metronome::new(&transport);
+    let metronome = Metronome::new(transport.get_signature().clone());
 
     Song {
       name: name.into(),
@@ -101,6 +53,7 @@ impl Song {
     self.name.as_str()
   }
 
+  // FIXME Do not expose a mutable interface to the transport, there are other components that need to keep in sync with signature/tempo
   pub fn get_transport_mut(&mut self) -> &mut Transport {
     &mut self.transport
   }
@@ -141,7 +94,7 @@ impl Song {
     for track in self.tracks.iter_mut() {
       // let clips = track.clips_in_range(start_ticks, end_ticks);
       match &track.media {
-        TrackMedia::Midi(midi_track) => {
+        TrackMedia::Midi(_midi_track) => {
           // prepare buffer for midi_track.sink
 
         }
