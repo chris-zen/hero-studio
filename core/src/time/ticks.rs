@@ -75,19 +75,26 @@ impl SubAssign for TicksTime {
   }
 }
 
+impl Mul for TicksTime {
+  type Output = TicksTime;
+  fn mul(self, rhs: TicksTime) -> Self {
+    TicksTime::new(self.0 * rhs.0)
+  }
+}
+
+impl Div for TicksTime {
+  type Output = TicksTime;
+  fn div(self, rhs: TicksTime) -> Self {
+    TicksTime::new(self.0 / rhs.0)
+  }
+}
+
 impl Div<u64> for TicksTime {
   type Output = TicksTime;
   fn div(self, rhs: u64) -> Self {
     TicksTime::new(self.0 / rhs)
   }
 }
-
-// impl Mul<Tempo> for TicksTime {
-//   type Output = TicksTime;
-//   fn mul(self, rhs: Tempo) -> Self {
-//     TicksTime::new(self.0 * rhs.get_value() as u64)
-//   }
-// }
 
 impl From<TicksTime> for f64 {
   fn from(item: TicksTime) -> Self {
@@ -180,7 +187,23 @@ mod test {
   }
 
   #[test]
+  pub fn mul() {
+    let time1 = TicksTime::new(100);
+    let time2 = TicksTime::new(5);
+    let result = time1 * time2;
+    assert_eq!(result, TicksTime(500));
+  }
+
+  #[test]
   pub fn div() {
+    let time1 = TicksTime::new(100);
+    let time2 = TicksTime::new(5);
+    let result = time1 / time2;
+    assert_eq!(result, TicksTime(20));
+  }
+
+  #[test]
+  pub fn div_u64() {
     let time1 = TicksTime::new(100);
     let result = time1 / 5;
     assert_eq!(result, TicksTime(20));
