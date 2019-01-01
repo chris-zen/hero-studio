@@ -29,8 +29,8 @@ pub struct Midi {
 impl Midi {
   pub fn init() -> Midi {
     Midi {
-      drivers: vec![
-        #[cfg(all(target_os = "macos"))] Arc::new(Mutex::new(coremidi::CoreMidi::new()))],
+      drivers: vec![#[cfg(all(target_os = "macos"))]
+      Arc::new(Mutex::new(coremidi::CoreMidi::new()))],
     }
   }
 

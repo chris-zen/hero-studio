@@ -25,8 +25,8 @@ pub enum NodeFeature {
 
 pub trait BusNode {
   fn name(&self) -> &str;
-  fn class(&self) -> NodeClass;
-  fn features(&self) -> HashSet<NodeFeature>;
+  fn class(&self) -> &NodeClass;
+  fn features(&self) -> &HashSet<NodeFeature>;
   fn send(&mut self, time: ClockTime, msg: &Message);
 }
 
@@ -94,13 +94,15 @@ impl BusQuery {
     self.features(HashSet::from_iter(std::iter::once(feature)))
   }
 
-  fn filter(self, _addr: &BusAddress, node: &BusNode) -> bool {
-    let name_match = self.name.map_or(true, |name| name == node.name());
+  fn filter(&self, _addr: &BusAddress, node: &BusNode) -> bool {
+    let name_match = self.name.as_ref().map_or(true, |name| name == node.name());
     let classes_match = self
       .classes
+      .as_ref()
       .map_or(true, |classes| classes.contains(&node.class()));
     let features_match = self
       .features
+      .as_ref()
       .map_or(true, |features| features.is_subset(&node.features()));
     name_match && classes_match && features_match
   }
@@ -124,20 +126,18 @@ impl MidiBus {
       .map(|(addr, node)| (addr.clone(), node.clone()))
   }
 
-  pub fn iter_by_query(
-    &self,
-    query: BusQuery,
-  ) -> impl Iterator<Item = (BusAddress, Arc<RwLock<dyn BusNode>>)> {
+  pub fn addresses_by_query(&self, query: &BusQuery) -> Vec<BusAddress> {
     self
       .nodes
       .iter()
       .filter(move |(addr, node)| {
         node
           .read()
-          .map(move |node| query.filter(addr, &*node))
+          .map(move |node| query.clone().filter(addr, &*node))
           .unwrap_or(false)
       })
-      .map(|(addr, node)| (addr.clone(), node.clone()))
+      .map(|(addr, _node)| addr.clone())
+      .collect()
   }
 
   pub fn get_node(&self, addr: &BusAddress) -> Option<BusNodeLock> {

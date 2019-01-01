@@ -12,8 +12,8 @@ use crate::time::{ticks::TICKS_RESOLUTION, BarsTime, SampleRate, Signature, Tick
 
 use super::transport::Segment;
 
-pub struct Metronome<'a> {
-  config: &'a MetronomeConfig,
+pub struct Metronome {
+  config: MetronomeConfig,
 
   enabled: bool,
 
@@ -24,19 +24,17 @@ pub struct Metronome<'a> {
   bus_addresses: Vec<BusAddress>,
 }
 
-impl<'a> Metronome<'a> {
-  pub fn new(
-    config: &'a MetronomeConfig,
-    transport: &Transport,
-    midi_bus: MidiBusLock,
-  ) -> Metronome<'a> {
+impl Metronome {
+  pub fn new(config: MetronomeConfig, transport: &Transport, midi_bus: MidiBusLock) -> Metronome {
+    let enabled = config.enabled;
+
     let (bar_ticks, beat_ticks) = Self::bar_and_beat_ticks(*transport.get_signature());
 
     let bus_addresses = Self::bus_addresses_from_midi_port(&config.port, &midi_bus);
 
     Metronome {
       config,
-      enabled: config.enabled,
+      enabled,
       bar_ticks,
       beat_ticks,
       midi_bus,
@@ -124,23 +122,23 @@ impl<'a> Metronome<'a> {
       MidiPort::None => Vec::new(),
       MidiPort::SystemDefault => Self::bus_addresses_by_query(
         midi_bus,
-        BusQuery::new()
+        &BusQuery::new()
           .class(NodeClass::Destination)
           .feature(NodeFeature::Default),
       ),
       MidiPort::All => {
-        Self::bus_addresses_by_query(midi_bus, BusQuery::new().class(NodeClass::Destination))
+        Self::bus_addresses_by_query(midi_bus, &BusQuery::new().class(NodeClass::Destination))
       }
       MidiPort::ByName(name) => {
-        Self::bus_addresses_by_query(midi_bus, BusQuery::new().name(name.as_str()))
+        Self::bus_addresses_by_query(midi_bus, &BusQuery::new().name(name.as_str()))
       }
     }
   }
 
-  fn bus_addresses_by_query(midi_bus: &MidiBusLock, query: BusQuery) -> Vec<BusAddress> {
+  fn bus_addresses_by_query(midi_bus: &MidiBusLock, query: &BusQuery) -> Vec<BusAddress> {
     midi_bus
       .read()
-      .map(|bus| bus.iter_by_query(query).map(|(addr, _node)| addr).collect())
+      .map(|bus| bus.addresses_by_query(query))
       .unwrap_or(Vec::new())
   }
 }

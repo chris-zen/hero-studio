@@ -7,6 +7,7 @@ use portaudio::{
   DuplexStreamCallbackArgs, DuplexStreamSettings, PortAudio, Stream, StreamParameters,
 };
 
+use hero_studio_core::config::Audio as AudioConfig;
 use hero_studio_core::studio::{ProcessingTime, Studio};
 
 use crate::midi::Midi;
@@ -24,7 +25,8 @@ type PortAudioStream = Stream<portaudio::NonBlocking, portaudio::Duplex<f32, f32
 
 pub fn audio_start<'a>(
   pa: &'a PortAudio,
-  midi_mutex: Arc<Mutex<Midi>>,
+  _midi_mutex: Arc<Mutex<Midi>>,
+  audio_config: AudioConfig,
   studio_lock: Arc<RwLock<Studio>>,
 ) -> Result<PortAudioStream, Error> {
   println!("PortAudio:");
@@ -58,11 +60,6 @@ pub fn audio_start<'a>(
   // Construct the output stream parameters.
   let latency = output_info.default_low_output_latency;
   let output_params = StreamParameters::<f32>::new(def_output, CHANNELS, INTERLEAVED, latency);
-
-  let audio_config = studio_lock
-    .read()
-    .map_err(|_err| AudioError::StudioConfig)
-    .map(|studio| studio.config().audio.clone())?;
 
   // Check that the stream format is supported.
   let sample_rate = audio_config.sample_rate as f64;

@@ -1,4 +1,5 @@
 use std::collections::HashSet;
+use std::iter::FromIterator;
 use std::sync::{Arc, Mutex, RwLock};
 
 use failure;
@@ -7,8 +8,15 @@ use failure_derive;
 
 use portaudio;
 
-use hero_studio_core::midi::bus::{BusAddress, BusNode, MidiBus, NodeClass, NodeFeature};
-use hero_studio_core::{config::Config, studio::Studio, time::BarsTime};
+use hero_studio_core::midi::{
+  bus::{BusAddress, BusNode, MidiBus, NodeClass, NodeFeature},
+  messages::Message,
+};
+use hero_studio_core::{
+  config::Config,
+  studio::Studio,
+  time::{BarsTime, ClockTime},
+};
 
 mod midi;
 use crate::midi::Midi;
@@ -36,8 +44,16 @@ impl<'a> BusNode for FakeBusNode<'a> {
     self.name
   }
 
-  fn class(&self) -> NodeClass {
-    self.class
+  fn class(&self) -> &NodeClass {
+    &self.class
+  }
+
+  fn features(&self) -> &HashSet<NodeFeature> {
+    &self.features
+  }
+
+  fn send(&mut self, time: ClockTime, msg: &Message) {
+    println!(">>> {:?} {:?}", time, msg)
   }
 }
 
@@ -50,8 +66,8 @@ fn main() -> Result<(), Error> {
 
   let mut midi_bus = MidiBus::new();
   let fake_bus_node = FakeBusNode {
-    name: "fake",
-    class: NodeClass::MidiDestination,
+    name: "metronome",
+    class: NodeClass::Destination,
     features: HashSet::from_iter(std::iter::once(NodeFeature::Default)),
   };
   let fake_bus_addr = BusAddress::new();
@@ -59,16 +75,24 @@ fn main() -> Result<(), Error> {
   let midi_bus = Arc::new(RwLock::new(midi_bus));
 
   let config = Config::from_file(config_path.as_str())?;
-  let mut studio = Studio::new(config.clone(), midi_bus);
+  println!("{:#?}", config);
+
+  let audio_config = config.audio.clone();
+  let config_lock = Arc::new(RwLock::new(config));
+
+  let mut studio = Studio::new(config_lock, midi_bus);
   studio.song_mut().set_loop_end(BarsTime::new(2, 0, 0, 0));
 
   let studio_lock = Arc::new(RwLock::new(studio));
 
-  println!("{:#?}", config);
-
   let pa_ctx = portaudio::PortAudio::new()?;
 
-  let mut stream = audio_start(&pa_ctx, midi_mutex.clone(), studio_lock.clone())?;
+  let mut stream = audio_start(
+    &pa_ctx,
+    midi_mutex.clone(),
+    audio_config,
+    studio_lock.clone(),
+  )?;
 
   println!("Started");
   std::thread::sleep(std::time::Duration::from_secs(1));

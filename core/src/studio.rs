@@ -1,6 +1,6 @@
 use std::fmt;
 
-use crate::config::Config;
+use crate::config::{Config, ConfigLock};
 use crate::midi::bus::MidiBusLock;
 use crate::song::Song;
 
@@ -23,17 +23,17 @@ impl ProcessingTime {
   }
 }
 
-pub struct Studio<'a> {
-  config: &'a Config,
+pub struct Studio {
+  config: ConfigLock,
   midi_bus: MidiBusLock,
-  song: Song<'a>,
+  song: Song,
 }
 
-unsafe impl<'a> Send for Studio<'a> {}
-
-impl<'a> Studio<'a> {
-  pub fn new(config: &'a Config, midi_bus: MidiBusLock) -> Studio<'a> {
-    let song = Song::new("untitled", &config, midi_bus.clone());
+unsafe impl<'a> Send for Studio {}
+use std::rc::Rc;
+impl Studio {
+  pub fn new(config: ConfigLock, midi_bus: MidiBusLock) -> Studio {
+    let song = Song::new("untitled", config.clone(), midi_bus.clone());
 
     // TODO Create virtual ports according to the configuration ??? not sure if here or at main
 
@@ -44,15 +44,11 @@ impl<'a> Studio<'a> {
     }
   }
 
-  pub fn config(&self) -> &Config {
-    &self.config
-  }
-
   pub fn song(&self) -> &Song {
     &self.song
   }
 
-  pub fn song_mut(&mut self) -> &'a mut Song {
+  pub fn song_mut(&mut self) -> &mut Song {
     &mut self.song
   }
 
@@ -78,7 +74,7 @@ impl<'a> Studio<'a> {
   }
 }
 
-impl<'a> fmt::Debug for Studio<'a> {
+impl fmt::Debug for Studio {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     write!(f, "Studio({:?})", self.song.get_name())
   }

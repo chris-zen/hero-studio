@@ -6,6 +6,9 @@ use serde_derive::Deserialize;
 
 use std::fs::File;
 use std::io::Read;
+use std::sync::{Arc, RwLock};
+
+pub type ConfigLock = Arc<RwLock<Config>>;
 
 #[serde(default)]
 #[derive(Deserialize, Debug, Clone)]
