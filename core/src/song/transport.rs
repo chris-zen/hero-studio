@@ -1,5 +1,5 @@
 use crate::time::{
-  clock, drift_correction::ClockDriftCorrection, drift_correction::TicksDriftCorrection, BarsTime,
+  drift_correction::ClockDriftCorrection, drift_correction::TicksDriftCorrection, BarsTime,
   ClockTime, SampleRate, Signature, Tempo, TicksTime,
 };
 
@@ -117,6 +117,7 @@ impl Transport {
     self.current_time = self.current_ticks.to_clock(self.signature, self.tempo);
     self.next_time = self.current_time;
   }
+
   pub fn get_position(&self) -> BarsTime {
     BarsTime::from_ticks(self.current_ticks, self.signature)
   }
@@ -145,7 +146,7 @@ impl Transport {
     BarsTime::from_ticks(self.loop_end, self.signature)
   }
 
-  pub(super) fn segments_iterator(&mut self, samples: u32) -> SegmentsIterator {
+  pub(super) fn segments_iterator(&self, samples: u32) -> SegmentsIterator {
     SegmentsIterator::new(
       samples,
       self,

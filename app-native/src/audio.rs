@@ -1,13 +1,15 @@
 use failure::{Error, Fail};
 use failure_derive;
 
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, Mutex, RwLock};
 
 use portaudio::{
   DuplexStreamCallbackArgs, DuplexStreamSettings, PortAudio, Stream, StreamParameters,
 };
 
 use hero_studio_core::studio::{ProcessingTime, Studio};
+
+use crate::midi::Midi;
 
 const CHANNELS: i32 = 2;
 const INTERLEAVED: bool = true;
@@ -22,6 +24,7 @@ type PortAudioStream = Stream<portaudio::NonBlocking, portaudio::Duplex<f32, f32
 
 pub fn audio_start<'a>(
   pa: &'a PortAudio,
+  midi_mutex: Arc<Mutex<Midi>>,
   studio_lock: Arc<RwLock<Studio>>,
 ) -> Result<PortAudioStream, Error> {
   println!("PortAudio:");

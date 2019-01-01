@@ -1,4 +1,7 @@
+use std::fmt;
+
 use crate::config::Config;
+use crate::midi::bus::MidiBusLock;
 use crate::song::Song;
 
 pub type Seconds = f64;
@@ -20,19 +23,24 @@ impl ProcessingTime {
   }
 }
 
-pub struct Studio {
-  config: Config,
-  song: Song,
+pub struct Studio<'a> {
+  config: &'a Config,
+  midi_bus: MidiBusLock,
+  song: Song<'a>,
 }
 
-unsafe impl Send for Studio {}
+unsafe impl<'a> Send for Studio<'a> {}
 
-impl Studio {
-  pub fn new(config: Config) -> Studio {
-    let sample_rate = config.audio.sample_rate;
+impl<'a> Studio<'a> {
+  pub fn new(config: &'a Config, midi_bus: MidiBusLock) -> Studio<'a> {
+    let song = Song::new("untitled", &config, midi_bus.clone());
+
+    // TODO Create virtual ports according to the configuration ??? not sure if here or at main
+
     Studio {
       config,
-      song: Song::new("untitled", sample_rate),
+      midi_bus,
+      song,
     }
   }
 
@@ -44,7 +52,7 @@ impl Studio {
     &self.song
   }
 
-  pub fn song_mut(&mut self) -> &mut Song {
+  pub fn song_mut(&mut self) -> &'a mut Song {
     &mut self.song
   }
 
@@ -67,5 +75,11 @@ impl Studio {
     // process the audio for time.output taking into consideration the midi events
 
     self.song.process(time.output, frames as u32);
+  }
+}
+
+impl<'a> fmt::Debug for Studio<'a> {
+  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    write!(f, "Studio({:?})", self.song.get_name())
   }
 }

@@ -3,3 +3,15 @@
 # output_port = "none"
 sample_rate = 44100
 frames = 1500
+
+[metronome]
+enabled = true
+port = { name = "metronome" }
+# bar_note = { key = 72 }
+# beat_note = { channel = 0, key = 65, velocity = 100 }
+
+[midi]
+
+[[midi.virtual_ports]]
+name = "metronome"
+sync_delay_ms = 0

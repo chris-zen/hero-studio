@@ -1,44 +1,54 @@
+use std::cell::{RefCell, RefMut};
+use std::rc::Rc;
+use std::sync::{Arc, RwLock};
+
 pub mod clips;
 pub mod io;
+pub mod metronome;
 pub mod source;
 pub mod track;
 pub mod transport;
-pub mod metronome;
 
-use crate::time::{SampleRate, Signature, TicksTime, BarsTime};
+use crate::config::Config;
+use crate::midi::bus::MidiBusLock;
+use crate::time::{BarsTime, SampleRate, Signature, TicksTime};
 
 use self::{
+  metronome::Metronome,
   track::{Track, TrackMedia},
   transport::{Segment, Transport},
-  metronome::Metronome,
 };
 
-pub struct Song {
+pub struct Song<'a> {
   name: String,
+
+  config: &'a Config,
 
   transport: Transport,
 
-  metronome: Metronome,
+  metronome: Metronome<'a>,
 
   tracks: Vec<Track>,
+
+  midi_bus: MidiBusLock,
 }
 
-impl Song {
-  pub fn new<T>(name: T, sample_rate: SampleRate) -> Song
+impl<'a> Song<'a> {
+  pub fn new<T>(name: T, config: &'a Config, midi_bus: MidiBusLock) -> Song
   where
     T: Into<String>,
   {
-    let transport = Transport::new(sample_rate);
-    let metronome = Metronome::new(transport.get_signature().clone());
+    let transport = Transport::new(config.audio.sample_rate);
+
+    let metronome = Metronome::new(&config.metronome, &transport, Arc::clone(&midi_bus));
 
     Song {
       name: name.into(),
-
+      config: &config,
       transport: transport,
-
-      metronome: metronome,
-
+      metronome,
       tracks: Vec::new(),
+      midi_bus,
     }
   }
 
@@ -53,9 +63,16 @@ impl Song {
     self.name.as_str()
   }
 
-  // FIXME Do not expose a mutable interface to the transport, there are other components that need to keep in sync with signature/tempo
-  pub fn get_transport_mut(&mut self) -> &mut Transport {
-    &mut self.transport
+  pub fn set_loop_enabled(&mut self, enabled: bool) {
+    self.transport.set_loop_enabled(enabled);
+  }
+
+  pub fn set_loop_start(&mut self, position: BarsTime) {
+    self.transport.set_loop_start(position);
+  }
+
+  pub fn set_loop_end(&mut self, position: BarsTime) {
+    self.transport.set_loop_end(position)
   }
 
   pub fn play(&mut self, restart: bool) -> bool {
@@ -89,7 +106,7 @@ impl Song {
       segment.end_time.units()
     );
 
-    self.metronome.process_segment(segment);
+    self.metronome.process_segment(segment, &self.transport);
 
     for track in self.tracks.iter_mut() {
       // let clips = track.clips_in_range(start_ticks, end_ticks);
