@@ -8,7 +8,7 @@ use crate::midi::{
   messages::Message,
 };
 use crate::song::transport::Transport;
-use crate::time::{ticks::TICKS_RESOLUTION, BarsTime, SampleRate, Signature, TicksTime};
+use crate::time::{ticks::TICKS_RESOLUTION, BarsTime, SampleRate, Signature, Tempo, TicksTime, ClockTime};
 
 use super::transport::Segment;
 
@@ -53,38 +53,39 @@ impl Metronome {
   pub fn process_segment(&mut self, segment: &Segment, transport: &Transport) {
     if self.enabled {
       let signature = *transport.get_signature();
+      let tempo = *transport.get_tempo();
+
       let mut next_bar = Self::ceil_ticks(segment.start_ticks, self.bar_ticks);
       let mut next_beat = Self::ceil_ticks(segment.start_ticks, self.beat_ticks);
 
       while next_beat < segment.end_ticks {
         let bars_time = BarsTime::from_ticks(next_beat, signature);
 
+        let advanced_ticks = next_beat - segment.start_ticks;
+        let note_time = segment.play_time + advanced_ticks.to_clock(signature, tempo);
+
         if next_beat == next_bar {
           println!("Metronome: |> {:?}", bars_time);
-          self.send_note(next_bar, &self.config.bar_note, transport);
+          self.send_note(note_time, &self.config.bar_note, signature, tempo);
           next_bar += self.bar_ticks;
         } else {
           println!("Metronome: ~> {:?}", bars_time);
-          self.send_note(next_beat, &self.config.beat_note, transport);
+          self.send_note(note_time, &self.config.beat_note, signature, tempo);
         }
         next_beat += self.beat_ticks;
       }
     }
   }
 
-  fn send_note(&self, ticks: TicksTime, note: &MetronomeNote, transport: &Transport) {
-    let signature = *transport.get_signature();
-    let tempo = *transport.get_tempo();
-    // FIXME start_time should be an absolute playing time, not a song position
-    let start_time = ticks.to_clock(signature, tempo);
+  fn send_note(&self, start_time: ClockTime, note: &MetronomeNote, signature: Signature, tempo: Tempo) {
     let duration_ticks = TicksTime::new(16 * TICKS_RESOLUTION / note.duration as u64);
     let duration_time = duration_ticks.to_clock(signature, tempo);
     let end_time = start_time + duration_time;
 
     if let Ok(mut midi_bus) = self.midi_bus.write() {
       for bus_addr in self.bus_addresses.iter() {
-        if let Some(bus_node) = midi_bus.get_node_mut(bus_addr) {
-          if let Ok(mut bus_node) = bus_node.write() {
+        if let Some(bus_node_lock) = midi_bus.get_node_mut(bus_addr) {
+          if let Ok(mut bus_node) = bus_node_lock.write() {
             bus_node.send(
               start_time,
               &Message::NoteOn {

@@ -12,6 +12,7 @@ pub mod transport;
 use crate::config::ConfigLock;
 use crate::midi::bus::MidiBusLock;
 use crate::time::{BarsTime, SampleRate, Signature, TicksTime};
+use crate::studio::AudioTime;
 
 use self::{
   metronome::Metronome,
@@ -45,7 +46,7 @@ impl Song {
 
     let transport = Transport::new(sample_rate);
 
-    let metronome = Metronome::new(metronome_config, &transport, Arc::clone(&midi_bus));
+    let metronome = Metronome::new(metronome_config, &transport, midi_bus.clone());
 
     Song {
       name: name.into(),
@@ -90,9 +91,9 @@ impl Song {
   }
 
   ///! Process song play
-  pub fn process(&mut self, _output_host_time: f64, samples: u32) {
+  pub fn process(&mut self, audio_time: AudioTime, samples: u32) {
     if self.transport.is_playing() {
-      let mut segments = self.transport.segments_iterator(samples);
+      let mut segments = self.transport.segments_iterator(audio_time.output, samples);
       while let Some(segment) = segments.next(&self.transport) {
         self.process_segment(&segment);
       }
@@ -104,11 +105,12 @@ impl Song {
 
   fn process_segment(&mut self, segment: &Segment) {
     println!(
-      "=> Segment [{:06?}, {:06?}) [{:010?}, {:010?})",
+      "=> Segment [{:06?}, {:06?}) [{:010?}, {:010?}) @ {:010?}",
       u64::from(segment.start_ticks),
       u64::from(segment.end_ticks),
       segment.start_time.units(),
-      segment.end_time.units()
+      segment.end_time.units(),
+      segment.play_time.units()
     );
 
     self.metronome.process_segment(segment, &self.transport);

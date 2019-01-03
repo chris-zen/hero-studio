@@ -8,23 +8,23 @@ use portaudio::{
 };
 
 use hero_studio_core::config::Audio as AudioConfig;
-use hero_studio_core::studio::{ProcessingTime, Studio};
+use hero_studio_core::studio::{AudioTime, Studio};
 
 use crate::midi::Midi;
 
 const CHANNELS: i32 = 2;
 const INTERLEAVED: bool = true;
 
-#[derive(Debug, Fail)]
-enum AudioError {
-  #[fail(display = "Unable to access studio configuration")]
-  StudioConfig,
-}
+// #[derive(Debug, Fail)]
+// enum AudioError {
+//   #[fail(display = "Unable to access studio configuration")]
+//   StudioConfig,
+// }
 
 type PortAudioStream = Stream<portaudio::NonBlocking, portaudio::Duplex<f32, f32>>;
 
-pub fn audio_start<'a>(
-  pa: &'a PortAudio,
+pub fn audio_start(
+  pa: &PortAudio,
   _midi_mutex: Arc<Mutex<Midi>>,
   audio_config: AudioConfig,
   studio_lock: Arc<RwLock<Studio>>,
@@ -80,8 +80,9 @@ pub fn audio_start<'a>(
     studio_lock
       .write()
       .map(|mut studio| {
-        let proc_time = ProcessingTime::new(time.current, time.in_buffer_adc, time.out_buffer_dac);
-        studio.audio_handler(proc_time, frames, in_buffer, out_buffer); // TODO needs strategy to handle errors
+        let audio_time = AudioTime::new(time.current, time.in_buffer_adc, time.out_buffer_dac);
+        // TODO strategy to handle errors
+        studio.audio_handler(audio_time, frames, in_buffer, out_buffer);
         portaudio::Continue
       })
       .unwrap_or(portaudio::Complete)

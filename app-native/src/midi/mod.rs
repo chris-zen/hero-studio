@@ -17,7 +17,7 @@ pub trait MidiDriver {
 pub trait MidiInput {}
 
 pub trait MidiOutput {
-  fn name(&self) -> String;
+  fn name(&self) -> &str;
 
   // fn send(&self);
 }

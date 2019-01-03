@@ -130,10 +130,10 @@ impl MidiBus {
     self
       .nodes
       .iter()
-      .filter(move |(addr, node)| {
+      .filter(|(addr, node)| {
         node
           .read()
-          .map(move |node| query.clone().filter(addr, &*node))
+          .map(|node| query.clone().filter(addr, &*node))
           .unwrap_or(false)
       })
       .map(|(addr, _node)| addr.clone())

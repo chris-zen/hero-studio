@@ -59,7 +59,7 @@ impl<'a> BusNode for FakeBusNode<'a> {
 
 fn main() -> Result<(), Error> {
   let config_path =
-    std::env::var(HERO_STUDIO_CONFIG).unwrap_or(DEFAULT_HERO_STUDIO_CONFIG.to_string());
+    std::env::var(HERO_STUDIO_CONFIG).unwrap_or_else(|_| DEFAULT_HERO_STUDIO_CONFIG.to_string());
 
   let midi = Midi::init();
   let midi_mutex = Arc::new(Mutex::new(midi));
