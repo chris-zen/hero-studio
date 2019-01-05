@@ -2,9 +2,8 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use crate::config::{Metronome as MetronomeConfig, MetronomeNote, MidiPort};
-use crate::midi::bus::{BusAddress, NodeClass, NodeFeature};
 use crate::midi::{
-  bus::{BusNode, BusQuery, MidiBusLock},
+  bus::{BusAddress, BusNode, BusQuery, MidiBusLock, NodeClass, NodeFeature},
   messages::Message,
 };
 use crate::song::transport::Transport;
@@ -19,8 +18,8 @@ pub struct Metronome {
 
   enabled: bool,
 
-  bar_ticks: TicksTime,
-  beat_ticks: TicksTime,
+  bar_duration: TicksTime,
+  beat_duration: TicksTime,
 
   midi_bus: MidiBusLock,
   bus_addresses: Vec<BusAddress>,
@@ -30,15 +29,15 @@ impl Metronome {
   pub fn new(config: MetronomeConfig, transport: &Transport, midi_bus: MidiBusLock) -> Metronome {
     let enabled = config.enabled;
 
-    let (bar_ticks, beat_ticks) = Self::bar_and_beat_ticks(*transport.get_signature());
+    let (bar_duration, beat_duration) = Self::bar_and_beat_duration(*transport.get_signature());
 
     let bus_addresses = Self::bus_addresses_from_midi_port(&config.port, &midi_bus);
 
     Metronome {
       config,
       enabled,
-      bar_ticks,
-      beat_ticks,
+      bar_duration,
+      beat_duration,
       midi_bus,
       bus_addresses,
     }
@@ -57,24 +56,23 @@ impl Metronome {
       let signature = *transport.get_signature();
       let tempo = *transport.get_tempo();
 
-      let mut next_bar = Self::ceil_ticks(segment.start_ticks, self.bar_ticks);
-      let mut next_beat = Self::ceil_ticks(segment.start_ticks, self.beat_ticks);
+      let mut next_bar_position = Self::ceil_ticks(segment.start_position, self.bar_duration);
+      let mut next_beat_position = Self::ceil_ticks(segment.start_position, self.beat_duration);
 
-      while next_beat < segment.end_ticks {
-        let bars_time = BarsTime::from_ticks(next_beat, signature);
+      while next_beat_position < segment.end_position {
+        let advanced_ticks = next_beat_position - segment.start_position;
+        let note_time = segment.master_clock + advanced_ticks.to_clock(signature, tempo);
 
-        let advanced_ticks = next_beat - segment.start_ticks;
-        let note_time = segment.play_time + advanced_ticks.to_clock(signature, tempo);
-
-        if next_beat == next_bar {
+        // let bars_time = BarsTime::from_ticks(next_beat_position, signature);
+        if next_beat_position == next_bar_position {
           // println!("Metronome: |> {:?}", bars_time);
           self.send_note(note_time, &self.config.bar_note, signature, tempo);
-          next_bar += self.bar_ticks;
+          next_bar_position += self.bar_duration;
         } else {
           // println!("Metronome: ~> {:?}", bars_time);
           self.send_note(note_time, &self.config.beat_note, signature, tempo);
         }
-        next_beat += self.beat_ticks;
+        next_beat_position += self.beat_duration;
       }
     }
   }
@@ -116,10 +114,10 @@ impl Metronome {
     }
   }
 
-  fn bar_and_beat_ticks(signature: Signature) -> (TicksTime, TicksTime) {
-    let bar_ticks = BarsTime::from_bars(1).to_ticks(signature);
-    let beat_ticks = bar_ticks / signature.get_num_beats() as u64;
-    (bar_ticks, beat_ticks)
+  fn bar_and_beat_duration(signature: Signature) -> (TicksTime, TicksTime) {
+    let bar_duration = BarsTime::from_bars(1).to_ticks(signature);
+    let beat_duration = bar_duration / signature.get_num_beats() as u64;
+    (bar_duration, beat_duration)
   }
 
   fn ceil_ticks(start: TicksTime, module: TicksTime) -> TicksTime {

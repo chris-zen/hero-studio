@@ -70,7 +70,7 @@ impl fmt::Debug for BarsTime {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     write!(
       f,
-      "{:05}:{:02}:{:02}:{:03}",
+      "{:05}:{:02}:{:02}:{:04}",
       self.bars + 1,
       self.beats + 1,
       self.sixteenths + 1,

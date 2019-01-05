@@ -2,7 +2,7 @@ use crate::time::{BarsTime, ClockTime, SampleRate, Signature, Tempo, TicksTime};
 
 const SECONDS_PER_MINUTE: f64 = 60.0;
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct TicksDriftCorrection {
   ticks_per_sample: f64,
   error_per_sample: f64,

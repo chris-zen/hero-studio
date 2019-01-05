@@ -2,7 +2,7 @@
 # input_port = { name = "xyz" }
 # output_port = "none"
 sample_rate = 44100
-frames = 100
+frames = 128
 
 [metronome]
 enabled = true
@@ -12,6 +12,6 @@ port = { name = "IAC Driver Bus 1" }
 
 [midi]
 
-[[midi.virtual_ports]]
+[[midi.output_virtual_ports]]
 name = "metronome"
 sync_delay_ms = 0

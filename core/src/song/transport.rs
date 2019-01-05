@@ -8,21 +8,18 @@ const DEFAULT_SIGNATURE_NUM_BEATS: u8 = 4;
 const DEFAULT_SIGNATURE_NOTE_VALUE: u8 = 4;
 
 pub struct Transport {
+  sample_rate: SampleRate,
   signature: Signature,
   tempo: Tempo,
-  sample_rate: SampleRate,
 
   playing: bool,
 
-  start_ticks: TicksTime,
-  current_ticks: TicksTime,
-  next_ticks: TicksTime,
-  ticks_drift_correction: TicksDriftCorrection,
+  next_play_duration: TicksTime,
 
-  start_time: ClockTime,
-  current_time: ClockTime,
-  next_time: ClockTime,
-  clock_drift_correction: ClockDriftCorrection,
+  start_position: TicksTime,
+  current_position: TicksTime,
+  next_position: TicksTime,
+  time_drift_correction: TicksDriftCorrection,
 
   loop_enabled: bool,
   loop_start: TicksTime,
@@ -34,21 +31,18 @@ impl Transport {
     let signature = Signature::new(DEFAULT_SIGNATURE_NUM_BEATS, DEFAULT_SIGNATURE_NOTE_VALUE);
     let tempo = Tempo::new(DEFAULT_TEMPO);
     let mut transport = Transport {
-      signature: signature,
-      tempo: tempo,
-      sample_rate: sample_rate,
+      sample_rate,
+      signature,
+      tempo,
 
       playing: false,
 
-      start_ticks: TicksTime::zero(),
-      current_ticks: TicksTime::zero(),
-      next_ticks: TicksTime::zero(),
-      ticks_drift_correction: TicksDriftCorrection::new(signature, tempo, sample_rate),
+      next_play_duration: TicksTime::zero(),
 
-      start_time: ClockTime::zero(),
-      current_time: ClockTime::zero(),
-      next_time: ClockTime::zero(),
-      clock_drift_correction: ClockDriftCorrection::new(sample_rate),
+      start_position: TicksTime::zero(),
+      current_position: TicksTime::zero(),
+      next_position: TicksTime::zero(),
+      time_drift_correction: TicksDriftCorrection::new(signature, tempo, sample_rate),
 
       loop_enabled: true,
       loop_start: TicksTime::zero(),
@@ -56,6 +50,15 @@ impl Transport {
     };
     transport.update_timing_constants();
     transport
+  }
+
+  pub fn set_sample_rate(&mut self, sample_rate: SampleRate) {
+    self.sample_rate = sample_rate;
+    self.update_timing_constants();
+  }
+
+  pub fn get_sample_rate(&self) -> &SampleRate {
+    &self.sample_rate
   }
 
   pub fn set_signature(&mut self, signature: Signature) {
@@ -72,15 +75,6 @@ impl Transport {
 
   pub fn get_tempo(&self) -> &Tempo {
     &self.tempo
-  }
-
-  pub fn set_sample_rate(&mut self, sample_rate: SampleRate) {
-    self.sample_rate = sample_rate;
-    self.update_timing_constants();
-  }
-
-  pub fn get_sample_rate(&self) -> &SampleRate {
-    &self.sample_rate
   }
 
   pub fn is_playing(&self) -> bool {
@@ -103,23 +97,18 @@ impl Transport {
   }
 
   fn reset_position(&mut self) {
-    self.current_ticks = self.start_ticks;
-    self.next_ticks = self.current_ticks;
-
-    self.current_time = self.start_time;
-    self.next_time = self.current_time;
+    self.next_play_duration = TicksTime::zero();
+    self.current_position = self.start_position;
+    self.next_position = self.current_position;
   }
 
   pub fn set_position(&mut self, position: BarsTime) {
-    self.current_ticks = position.to_ticks(self.signature);
-    self.next_ticks = self.current_ticks;
-
-    self.current_time = self.current_ticks.to_clock(self.signature, self.tempo);
-    self.next_time = self.current_time;
+    self.current_position = position.to_ticks(self.signature);
+    self.next_position = self.current_position;
   }
 
   pub fn get_position(&self) -> BarsTime {
-    BarsTime::from_ticks(self.current_ticks, self.signature)
+    BarsTime::from_ticks(self.current_position, self.signature)
   }
 
   pub fn set_loop_enabled(&mut self, enabled: bool) {
@@ -146,164 +135,137 @@ impl Transport {
     BarsTime::from_ticks(self.loop_end, self.signature)
   }
 
-  pub(super) fn segments_iterator(&self, play_time: ClockTime, samples: u32) -> SegmentsIterator {
+  pub(super) fn segments_iterator(
+    &self,
+    master_clock: ClockTime,
+    samples: u32,
+  ) -> SegmentsIterator {
     SegmentsIterator::new(
-      play_time,
       samples,
       self,
-      self.next_ticks,
-      &self.ticks_drift_correction,
-      self.next_time,
-      &self.clock_drift_correction,
+      master_clock,
+      self.next_play_duration,
+      self.next_position,
+      &self.time_drift_correction,
     )
   }
 
   pub(super) fn update_from_segments(&mut self, segments: &SegmentsIterator) {
-    self.current_ticks = segments.next_ticks;
-    self.next_ticks = segments.next_ticks;
-    self.ticks_drift_correction = segments.ticks_drift_correction.clone();
-
-    self.current_time = segments.next_time;
-    self.next_time = segments.next_time;
-    self.clock_drift_correction = segments.clock_drift_correction.clone();
+    self.next_play_duration = segments.next_play_duration;
+    self.current_position = segments.next_position;
+    self.next_position = segments.next_position;
+    self.time_drift_correction = segments.time_drift_correction.clone();
+    // println!("))))))))> {:#?}", self.time_drift_correction);
   }
 
   ///! Update timing constants that change sporadically (ex. changes on sample rate, tempo, signature, ...)
   fn update_timing_constants(&mut self) {
-    self.ticks_drift_correction =
+    self.time_drift_correction =
       TicksDriftCorrection::new(self.signature, self.tempo, self.sample_rate);
     println!(
       "Ticks error per sample = {:?} ticks",
-      self.ticks_drift_correction.get_error_per_sample()
-    );
-
-    self.clock_drift_correction = ClockDriftCorrection::new(self.sample_rate);
-    println!(
-      "Clock error per sample = {:?} clock units",
-      self.clock_drift_correction.get_error_per_sample()
+      self.time_drift_correction.get_error_per_sample()
     );
   }
 
   ///! Determine whether or not not to move the song position to the start of the loop
-  fn crossing_loop_end(&self, prev_ticks: TicksTime, next_ticks: TicksTime) -> bool {
-    self.loop_enabled && prev_ticks < self.loop_end && self.loop_end <= next_ticks
+  fn crossing_loop_end(&self, prev_ticks: TicksTime, next_position: TicksTime) -> bool {
+    self.loop_enabled && prev_ticks < self.loop_end && self.loop_end <= next_position
   }
 }
 
 pub struct SegmentsIterator {
-  play_time: ClockTime,
-  next_play_time: ClockTime,
+  master_clock: ClockTime,
+  next_master_clock: ClockTime,
 
-  current_ticks: TicksTime,
-  next_ticks: TicksTime,
-  remaining_ticks: TicksTime,
-  ticks_drift_correction: TicksDriftCorrection,
+  play_duration: TicksTime,
+  next_play_duration: TicksTime,
 
-  current_time: ClockTime,
-  next_time: ClockTime,
-  remaining_time: ClockTime,
-  clock_drift_correction: ClockDriftCorrection,
+  current_position: TicksTime,
+  next_position: TicksTime,
+
+  remaining_duration: TicksTime,
+  time_drift_correction: TicksDriftCorrection,
 }
 
 impl SegmentsIterator {
   fn new(
-    play_time: ClockTime,
     samples: u32,
-    transport: &Transport,
-    next_ticks: TicksTime,
-    ticks_drift_correction: &TicksDriftCorrection,
-    next_time: ClockTime,
-    clock_drift_correction: &ClockDriftCorrection,
+    _transport: &Transport,
+    next_master_clock: ClockTime,
+    next_play_duration: TicksTime,
+    next_position: TicksTime,
+    time_drift_correction: &TicksDriftCorrection,
   ) -> SegmentsIterator {
-    let mut ticks_drift_correction = ticks_drift_correction.clone();
-    let mut clock_drift_correction = clock_drift_correction.clone();
+    let mut time_drift_correction = time_drift_correction.clone();
 
     // println!(
-    //   "[{:?}] <{:010?}> Err: {:?} Correction {:?} <{:010?}> Err: {:?} Correction {:?}",
-    //   BarsTime::from_ticks(next_ticks, transport.signature),
-    //   u64::from(next_ticks),
-    //   ticks_drift_correction.get_error_accumulated(),
-    //   ticks_drift_correction.get_last_correction(),
-    //   next_time.units(),
-    //   clock_drift_correction.get_error_accumulated(),
-    //   clock_drift_correction.get_last_correction()
+    //   "[{:?}] <{:010?}> Err: {:?} Correction {:?} ({:010?}) A {:010?}",
+    //   BarsTime::from_ticks(next_position, _transport.signature),
+    //   u64::from(next_position),
+    //   time_drift_correction.get_error_accumulated(),
+    //   time_drift_correction.get_last_correction(),
+    //   u64::from(next_play_duration),
+    //   next_master_clock.units()
     // );
 
-    let remaining_ticks = ticks_drift_correction.next(samples);
-    let remaining_time = clock_drift_correction.next(samples);
+    let remaining_duration = time_drift_correction.next(samples);
 
     SegmentsIterator {
-      play_time,
-      next_play_time: play_time,
-
-      current_ticks: next_ticks,
-      next_ticks: next_ticks,
-      remaining_ticks: remaining_ticks,
-      ticks_drift_correction: ticks_drift_correction,
-
-      current_time: next_time,
-      next_time: next_time,
-      remaining_time: remaining_time,
-      clock_drift_correction: clock_drift_correction,
+      master_clock: next_master_clock,
+      next_master_clock,
+      play_duration: next_play_duration,
+      next_play_duration,
+      current_position: next_position,
+      next_position,
+      remaining_duration,
+      time_drift_correction,
     }
   }
 
   pub fn next(&mut self, transport: &Transport) -> Option<Segment> {
-    self.play_time = self.next_play_time;
-    self.current_ticks = self.next_ticks;
-    self.current_time = self.next_time;
+    self.master_clock = self.next_master_clock;
+    self.play_duration = self.next_play_duration;
+    self.current_position = self.next_position;
 
-    if self.remaining_ticks > TicksTime::zero() {
-      let end_ticks = self.current_ticks + self.remaining_ticks;
-      let end_time = self.current_time + self.remaining_time;
+    if self.remaining_duration > TicksTime::zero() {
+      let end_position = self.current_position + self.remaining_duration;
 
-      if transport.crossing_loop_end(self.current_ticks, end_ticks) {
-        let loop_end_time = transport
-          .loop_end
-          .to_clock(transport.signature, transport.tempo);
-
-        self.next_ticks = transport.loop_start;
-        self.remaining_ticks = end_ticks - transport.loop_end;
-        let total_ticks = transport.loop_end - self.current_ticks;
-
-        self.next_time = transport
-          .loop_start
-          .to_clock(transport.signature, transport.tempo);
-        self.remaining_time = end_time - loop_end_time;
-        let total_time = loop_end_time - self.current_time;
-
-        self.next_play_time = self.play_time + total_time;
-
-        Some(Segment {
-          play_time: self.play_time,
-          start_ticks: self.current_ticks,
-          end_ticks: transport.loop_end,
-          total_ticks,
-          start_time: self.current_time,
-          end_time: loop_end_time,
-          total_time,
-        })
+      if transport.crossing_loop_end(self.current_position, end_position) {
+        self.remaining_duration = end_position - transport.loop_end;
+        let end_position = transport.loop_end;
+        self.next_position = transport.loop_start;
+        let segment_duration = end_position - self.current_position;
+        self.next_play_duration = self.play_duration + segment_duration;
+        let segment = Segment::new(
+          transport.sample_rate,
+          transport.signature,
+          transport.tempo,
+          self.master_clock,
+          self.current_position,
+          end_position,
+          segment_duration,
+          self.play_duration,
+        );
+        self.next_master_clock = self.master_clock + segment.clock_duration;
+        Some(segment)
       } else {
-        let total_ticks = end_ticks - self.current_ticks;
-        let total_time = end_time - self.current_time;
-
-        self.next_play_time = self.play_time + total_time;
-
-        self.next_ticks = end_ticks;
-        self.remaining_ticks = TicksTime::zero();
-
-        self.next_time = end_time;
-        self.remaining_time = ClockTime::zero();
-
-        Some(Segment {
-          play_time: self.play_time,
-          start_ticks: self.current_ticks,
-          end_ticks: end_ticks,
-          total_ticks,
-          start_time: self.current_time,
-          end_time: end_time,
-          total_time,
-        })
+        self.next_position = end_position;
+        let segment_duration = self.remaining_duration;
+        self.remaining_duration = TicksTime::zero();
+        self.next_play_duration = self.play_duration + segment_duration;
+        let segment = Segment::new(
+          transport.sample_rate,
+          transport.signature,
+          transport.tempo,
+          self.master_clock,
+          self.current_position,
+          end_position,
+          segment_duration,
+          self.play_duration,
+        );
+        self.next_master_clock = self.master_clock + segment.clock_duration;
+        Some(segment)
       }
     } else {
       None
@@ -312,13 +274,48 @@ impl SegmentsIterator {
 }
 
 pub struct Segment {
-  pub(super) play_time: ClockTime,
+  pub(super) sample_rate: SampleRate,
+  pub(super) signature: Signature,
+  pub(super) tempo: Tempo,
 
-  pub(super) start_ticks: TicksTime,
-  pub(super) end_ticks: TicksTime,
-  pub(super) total_ticks: TicksTime,
+  pub(super) master_clock: ClockTime,
 
-  pub(super) start_time: ClockTime,
-  pub(super) end_time: ClockTime,
-  pub(super) total_time: ClockTime,
+  pub(super) start_position: TicksTime,
+  pub(super) end_position: TicksTime,
+  pub(super) duration: TicksTime,
+
+  pub(super) clock_start_position: ClockTime,
+  pub(super) clock_end_position: ClockTime,
+  pub(super) clock_duration: ClockTime,
+
+  pub(super) play_duration: TicksTime,
+  pub(super) clock_play_duration: ClockTime,
+}
+
+impl Segment {
+  pub fn new(
+    sample_rate: SampleRate,
+    signature: Signature,
+    tempo: Tempo,
+    master_clock: ClockTime,
+    start_position: TicksTime,
+    end_position: TicksTime,
+    duration: TicksTime,
+    play_duration: TicksTime,
+  ) -> Segment {
+    Segment {
+      sample_rate,
+      signature,
+      tempo,
+      master_clock,
+      start_position,
+      end_position,
+      duration,
+      play_duration,
+      clock_start_position: start_position.to_clock(signature, tempo),
+      clock_end_position: end_position.to_clock(signature, tempo),
+      clock_duration: duration.to_clock(signature, tempo),
+      clock_play_duration: play_duration.to_clock(signature, tempo),
+    }
+  }
 }
