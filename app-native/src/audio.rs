@@ -1,4 +1,4 @@
-use failure::{Error};
+use failure::Error;
 // use failure_derive;
 
 use std::sync::{Arc, RwLock};

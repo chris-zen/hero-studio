@@ -6,15 +6,9 @@ use failure_derive;
 
 use portaudio;
 
-use hero_studio_core::midi::{
-  bus::{BusAddress, MidiBus},
-};
+use hero_studio_core::midi::bus::{BusAddress, MidiBus};
 
-use hero_studio_core::{
-  config::Config,
-  studio::Studio,
-  time::BarsTime,
-};
+use hero_studio_core::{config::Config, studio::Studio, time::BarsTime};
 
 mod midi;
 use crate::midi::{Midi, MidiError};
@@ -37,8 +31,8 @@ enum MainError {
 }
 
 fn main() -> Result<(), Error> {
-  let config_path = std::env::var(HERO_STUDIO_CONFIG)
-    .unwrap_or_else(|_| DEFAULT_HERO_STUDIO_CONFIG.to_string());
+  let config_path =
+    std::env::var(HERO_STUDIO_CONFIG).unwrap_or_else(|_| DEFAULT_HERO_STUDIO_CONFIG.to_string());
 
   let config = Config::from_file(config_path.as_str())?;
   println!("{:#?}", config);
@@ -72,11 +66,7 @@ fn main() -> Result<(), Error> {
 
   let pa_ctx = portaudio::PortAudio::new()?;
 
-  let mut stream = audio_start(
-    &pa_ctx,
-    audio_config,
-    studio_lock.clone(),
-  )?;
+  let mut stream = audio_start(&pa_ctx, audio_config, studio_lock.clone())?;
 
   println!("Started");
   std::thread::sleep(std::time::Duration::from_secs(1));

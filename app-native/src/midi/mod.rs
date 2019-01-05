@@ -6,8 +6,8 @@ use std::collections::HashMap;
 use failure::Fail;
 use failure_derive;
 
-use hero_studio_core::time::ClockTime;
 use hero_studio_core::midi::bus::BusNodeLock;
+use hero_studio_core::time::ClockTime;
 
 #[derive(Debug, Fail)]
 pub enum MidiError {
@@ -53,34 +53,33 @@ impl Midi {
 
     if cfg!(all(target_os = "macos")) {
       let driver_factory = Box::new(|app_name: String| {
-        coremidi::CoreMidi::new(app_name)
-          .map(|driver| Box::new(driver) as Box<MidiDriver>)
+        coremidi::CoreMidi::new(app_name).map(|driver| Box::new(driver) as Box<MidiDriver>)
       });
       drivers.insert(coremidi::ID, driver_factory);
     }
 
-    Midi {
-      drivers,
-    }
+    Midi { drivers }
   }
 
   pub fn drivers(&self) -> Vec<MidiDriverId> {
-    self.drivers
-      .keys()
-      .map(|id| *id)
-      .collect()
+    self.drivers.keys().map(|id| *id).collect()
   }
 
-  pub fn driver<T>(&self, id: MidiDriverId, app_name: T) -> MidiResult<Box<dyn MidiDriver>> where T: Into<String> {
-    self.drivers
+  pub fn driver<T>(&self, id: MidiDriverId, app_name: T) -> MidiResult<Box<dyn MidiDriver>>
+  where
+    T: Into<String>,
+  {
+    self
+      .drivers
       .get(&id)
       .map(|driver_factory| driver_factory(app_name.into()))
-      .unwrap_or(Err(MidiError::DriverNotFound { id: String::from(id) }))
+      .unwrap_or(Err(MidiError::DriverNotFound {
+        id: String::from(id),
+      }))
   }
 }
 
 pub trait MidiDriver {
-
   fn id(&self) -> MidiDriverId;
 
   fn get_host_time(&self) -> ClockTime;

@@ -1,17 +1,17 @@
 use std::collections::HashSet;
 use std::iter::FromIterator;
-use std::sync::{Arc, RwLock};
 use std::rc::Rc;
+use std::sync::{Arc, RwLock};
 
 use coremidi::{Client, Destination, Destinations, OutputPort, PacketBuffer};
 
-use super::{MidiResult, MidiError, MidiDriverId, MidiDriver, MidiEndpoint, MidiDestination};
-use hero_studio_core::time::{clock, ClockTime};
+use super::{MidiDestination, MidiDriver, MidiDriverId, MidiEndpoint, MidiError, MidiResult};
 use hero_studio_core::midi::{
-  messages::Message,
+  bus::{BusNode, BusNodeLock, NodeClass, NodeFeature},
   encoder::Encoder,
-  bus::{NodeClass, NodeFeature, BusNode, BusNodeLock}
+  messages::Message,
 };
+use hero_studio_core::time::{clock, ClockTime};
 
 pub const ID: MidiDriverId = MidiDriverId("CoreMIDI");
 
@@ -20,19 +20,24 @@ pub struct CoreMidi {
 }
 
 impl CoreMidi {
-  pub fn new<T>(app_name: T) -> MidiResult<CoreMidi> where T: Into<String> {
+  pub fn new<T>(app_name: T) -> MidiResult<CoreMidi>
+  where
+    T: Into<String>,
+  {
     Client::new(app_name.into().as_str())
-      .map_err(|status| MidiError::Init { cause: format!("OSStatus={:?}", status) })
-      .map(|client| {
-        CoreMidi {
-          client: Rc::new(client),
-        }
+      .map_err(|status| MidiError::Init {
+        cause: format!("OSStatus={:?}", status),
+      })
+      .map(|client| CoreMidi {
+        client: Rc::new(client),
       })
   }
 }
 
 impl MidiDriver for CoreMidi {
-  fn id(&self) -> MidiDriverId { ID }
+  fn id(&self) -> MidiDriverId {
+    ID
+  }
 
   fn get_host_time(&self) -> ClockTime {
     let host_time = unsafe { external::AudioGetCurrentHostTime() };
@@ -58,7 +63,7 @@ impl MidiDriver for CoreMidi {
           name,
           default: index == 0,
           client: Rc::clone(&self.client),
-          destination: Rc::new(destination)
+          destination: Rc::new(destination),
         }) as Box<MidiDestination>
       })
       .collect()
@@ -84,12 +89,11 @@ impl MidiEndpoint for CoreMidiDestination {
 
 impl MidiDestination for CoreMidiDestination {
   fn open(&self) -> MidiResult<BusNodeLock> {
-    self.client
+    self
+      .client
       .output_port(self.name.as_str())
-      .map_err(|status| {
-        MidiError::DestinationOpen {
-          cause: format!("Destination={:?}, OSStatus={:?}", self.name, status)
-        }
+      .map_err(|status| MidiError::DestinationOpen {
+        cause: format!("Destination={:?}, OSStatus={:?}", self.name, status),
       })
       .map(|port| {
         let features = if self.default {
