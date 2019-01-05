@@ -1,6 +1,6 @@
 use std::{
   cmp::{min, Ordering},
-  ops::{Add, AddAssign, Sub, SubAssign, Mul, Div},
+  ops::{Add, AddAssign, Div, Mul, Sub, SubAssign},
 };
 
 use crate::time::{clock, ClockTime, Signature, Tempo};
