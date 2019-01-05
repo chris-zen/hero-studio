@@ -1,27 +1,32 @@
 use failure::{Error, Fail};
 use failure_derive;
 
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, Mutex, RwLock};
 
 use portaudio::{
   DuplexStreamCallbackArgs, DuplexStreamSettings, PortAudio, Stream, StreamParameters,
 };
 
-use hero_studio_core::studio::{ProcessingTime, Studio};
+use hero_studio_core::config::Audio as AudioConfig;
+use hero_studio_core::studio::{AudioTime, Studio};
+
+use crate::midi::Midi;
 
 const CHANNELS: i32 = 2;
 const INTERLEAVED: bool = true;
 
-#[derive(Debug, Fail)]
-enum AudioError {
-  #[fail(display = "Unable to access studio configuration")]
-  StudioConfig,
-}
+// #[derive(Debug, Fail)]
+// enum AudioError {
+//   #[fail(display = "Unable to access studio configuration")]
+//   StudioConfig,
+// }
 
 type PortAudioStream = Stream<portaudio::NonBlocking, portaudio::Duplex<f32, f32>>;
 
-pub fn audio_start<'a>(
-  pa: &'a PortAudio,
+pub fn audio_start(
+  pa: &PortAudio,
+  _midi_mutex: Arc<Mutex<Midi>>,
+  audio_config: AudioConfig,
   studio_lock: Arc<RwLock<Studio>>,
 ) -> Result<PortAudioStream, Error> {
   println!("PortAudio:");
@@ -56,11 +61,6 @@ pub fn audio_start<'a>(
   let latency = output_info.default_low_output_latency;
   let output_params = StreamParameters::<f32>::new(def_output, CHANNELS, INTERLEAVED, latency);
 
-  let audio_config = studio_lock
-    .read()
-    .map_err(|_err| AudioError::StudioConfig)
-    .map(|studio| studio.config().audio.clone())?;
-
   // Check that the stream format is supported.
   let sample_rate = audio_config.sample_rate as f64;
   pa.is_duplex_format_supported(input_params, output_params, sample_rate)?;
@@ -80,8 +80,9 @@ pub fn audio_start<'a>(
     studio_lock
       .write()
       .map(|mut studio| {
-        let proc_time = ProcessingTime::new(time.current, time.in_buffer_adc, time.out_buffer_dac);
-        studio.audio_handler(proc_time, frames, in_buffer, out_buffer); // TODO needs strategy to handle errors
+        let audio_time = AudioTime::new(time.current, time.in_buffer_adc, time.out_buffer_dac);
+        // TODO strategy to handle errors
+        studio.audio_handler(audio_time, frames, in_buffer, out_buffer);
         portaudio::Continue
       })
       .unwrap_or(portaudio::Complete)

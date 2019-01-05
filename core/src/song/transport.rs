@@ -1,5 +1,5 @@
 use crate::time::{
-  clock, drift_correction::ClockDriftCorrection, drift_correction::TicksDriftCorrection, BarsTime,
+  drift_correction::ClockDriftCorrection, drift_correction::TicksDriftCorrection, BarsTime,
   ClockTime, SampleRate, Signature, Tempo, TicksTime,
 };
 
@@ -117,6 +117,7 @@ impl Transport {
     self.current_time = self.current_ticks.to_clock(self.signature, self.tempo);
     self.next_time = self.current_time;
   }
+
   pub fn get_position(&self) -> BarsTime {
     BarsTime::from_ticks(self.current_ticks, self.signature)
   }
@@ -145,8 +146,9 @@ impl Transport {
     BarsTime::from_ticks(self.loop_end, self.signature)
   }
 
-  pub(super) fn segments_iterator(&mut self, samples: u32) -> SegmentsIterator {
+  pub(super) fn segments_iterator(&self, play_time: ClockTime, samples: u32) -> SegmentsIterator {
     SegmentsIterator::new(
+      play_time,
       samples,
       self,
       self.next_ticks,
@@ -183,33 +185,29 @@ impl Transport {
   }
 
   ///! Determine whether or not not to move the song position to the start of the loop
-  fn loop_to_start(&self, prev_ticks: TicksTime, next_ticks: TicksTime) -> bool {
+  fn crossing_loop_end(&self, prev_ticks: TicksTime, next_ticks: TicksTime) -> bool {
     self.loop_enabled && prev_ticks < self.loop_end && self.loop_end <= next_ticks
   }
 }
 
-pub struct Segment {
-  pub(super) start_time: ClockTime,
-  pub(super) end_time: ClockTime,
-
-  pub(super) start_ticks: TicksTime,
-  pub(super) end_ticks: TicksTime,
-}
-
 pub struct SegmentsIterator {
-  current_time: ClockTime,
-  next_time: ClockTime,
-  remaining_time: ClockTime,
-  clock_drift_correction: ClockDriftCorrection,
+  play_time: ClockTime,
+  next_play_time: ClockTime,
 
   current_ticks: TicksTime,
   next_ticks: TicksTime,
   remaining_ticks: TicksTime,
   ticks_drift_correction: TicksDriftCorrection,
+
+  current_time: ClockTime,
+  next_time: ClockTime,
+  remaining_time: ClockTime,
+  clock_drift_correction: ClockDriftCorrection,
 }
 
 impl SegmentsIterator {
   fn new(
+    play_time: ClockTime,
     samples: u32,
     transport: &Transport,
     next_ticks: TicksTime,
@@ -235,6 +233,9 @@ impl SegmentsIterator {
     let remaining_time = clock_drift_correction.next(samples);
 
     SegmentsIterator {
+      play_time,
+      next_play_time: play_time,
+
       current_ticks: next_ticks,
       next_ticks: next_ticks,
       remaining_ticks: remaining_ticks,
@@ -248,6 +249,7 @@ impl SegmentsIterator {
   }
 
   pub fn next(&mut self, transport: &Transport) -> Option<Segment> {
+    self.play_time = self.next_play_time;
     self.current_ticks = self.next_ticks;
     self.current_time = self.next_time;
 
@@ -255,38 +257,68 @@ impl SegmentsIterator {
       let end_ticks = self.current_ticks + self.remaining_ticks;
       let end_time = self.current_time + self.remaining_time;
 
-      if transport.loop_to_start(self.current_ticks, end_ticks) {
+      if transport.crossing_loop_end(self.current_ticks, end_ticks) {
         let loop_end_time = transport
           .loop_end
           .to_clock(transport.signature, transport.tempo);
-        let segment = Segment {
-          start_ticks: self.current_ticks,
-          end_ticks: transport.loop_end,
-          start_time: self.current_time,
-          end_time: loop_end_time,
-        };
+
         self.next_ticks = transport.loop_start;
         self.remaining_ticks = end_ticks - transport.loop_end;
+        let total_ticks = transport.loop_end - self.current_ticks;
+
         self.next_time = transport
           .loop_start
           .to_clock(transport.signature, transport.tempo);
         self.remaining_time = end_time - loop_end_time;
-        Some(segment)
-      } else {
-        let segment = Segment {
+        let total_time = loop_end_time - self.current_time;
+
+        self.next_play_time = self.play_time + total_time;
+
+        Some(Segment {
+          play_time: self.play_time,
           start_ticks: self.current_ticks,
-          end_ticks: end_ticks,
+          end_ticks: transport.loop_end,
+          total_ticks,
           start_time: self.current_time,
-          end_time: end_time,
-        };
+          end_time: loop_end_time,
+          total_time,
+        })
+      } else {
+        let total_ticks = end_ticks - self.current_ticks;
+        let total_time = end_time - self.current_time;
+
+        self.next_play_time = self.play_time + total_time;
+
         self.next_ticks = end_ticks;
         self.remaining_ticks = TicksTime::zero();
+
         self.next_time = end_time;
         self.remaining_time = ClockTime::zero();
-        Some(segment)
+
+        Some(Segment {
+          play_time: self.play_time,
+          start_ticks: self.current_ticks,
+          end_ticks: end_ticks,
+          total_ticks,
+          start_time: self.current_time,
+          end_time: end_time,
+          total_time,
+        })
       }
     } else {
       None
     }
   }
+}
+
+pub struct Segment {
+  pub(super) play_time: ClockTime,
+
+  pub(super) start_ticks: TicksTime,
+  pub(super) end_ticks: TicksTime,
+  pub(super) total_ticks: TicksTime,
+
+  pub(super) start_time: ClockTime,
+  pub(super) end_time: ClockTime,
+  pub(super) total_time: ClockTime,
 }
