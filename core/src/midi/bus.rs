@@ -2,6 +2,8 @@ use std::collections::{HashMap, HashSet};
 use std::iter::FromIterator;
 use std::sync::{Arc, RwLock};
 
+use failure::Error;
+
 use uuid::Uuid;
 
 use crate::midi::messages::Message;
@@ -27,7 +29,10 @@ pub trait BusNode {
   fn name(&self) -> &str;
   fn class(&self) -> &NodeClass;
   fn features(&self) -> &HashSet<NodeFeature>;
-  fn send(&mut self, time: ClockTime, msg: &Message);
+
+  fn send_message(&mut self, time: ClockTime, msg: &Message);
+
+  // fn flush(&mut self);
 }
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
@@ -162,4 +167,6 @@ impl MidiBus {
       .map(|node| classes.contains(&node.class()))
       .unwrap_or(false)
   }
+
+  // fn flush(&mut self);
 }

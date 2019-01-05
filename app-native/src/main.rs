@@ -1,6 +1,4 @@
-use std::collections::HashSet;
-use std::iter::FromIterator;
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Arc, RwLock};
 
 use failure;
 use failure::{Error, Fail};
@@ -9,20 +7,22 @@ use failure_derive;
 use portaudio;
 
 use hero_studio_core::midi::{
-  bus::{BusAddress, BusNode, MidiBus, NodeClass, NodeFeature},
-  messages::Message,
+  bus::{BusAddress, MidiBus},
 };
+
 use hero_studio_core::{
   config::Config,
   studio::Studio,
-  time::{BarsTime, ClockTime},
+  time::BarsTime,
 };
 
 mod midi;
-use crate::midi::Midi;
+use crate::midi::{Midi, MidiError};
 
 mod audio;
 use crate::audio::{audio_close, audio_start};
+
+const APP_NAME: &'static str = "Hero Studio";
 
 const HERO_STUDIO_CONFIG: &'static str = "HERO_STUDIO_CONFIG";
 const DEFAULT_HERO_STUDIO_CONFIG: &'static str = "studio.toml";
@@ -31,55 +31,40 @@ const DEFAULT_HERO_STUDIO_CONFIG: &'static str = "studio.toml";
 enum MainError {
   #[fail(display = "Unable to lock studio for write")]
   StudioWriteLock,
-}
 
-pub struct FakeBusNode<'a> {
-  name: &'a str,
-  class: NodeClass,
-  features: HashSet<NodeFeature>,
-}
-
-impl<'a> BusNode for FakeBusNode<'a> {
-  fn name(&self) -> &str {
-    self.name
-  }
-
-  fn class(&self) -> &NodeClass {
-    &self.class
-  }
-
-  fn features(&self) -> &HashSet<NodeFeature> {
-    &self.features
-  }
-
-  fn send(&mut self, time: ClockTime, msg: &Message) {
-    println!(">>> {:?} {:?}", time, msg)
-  }
+  #[fail(display = "Failed to get a MIDI driver: {}", cause)]
+  GetMidiDriver { cause: MidiError },
 }
 
 fn main() -> Result<(), Error> {
-  let config_path =
-    std::env::var(HERO_STUDIO_CONFIG).unwrap_or_else(|_| DEFAULT_HERO_STUDIO_CONFIG.to_string());
-
-  let midi = Midi::init();
-  let midi_mutex = Arc::new(Mutex::new(midi));
-
-  let mut midi_bus = MidiBus::new();
-  let fake_bus_node = FakeBusNode {
-    name: "metronome",
-    class: NodeClass::Destination,
-    features: HashSet::from_iter(std::iter::once(NodeFeature::Default)),
-  };
-  let fake_bus_addr = BusAddress::new();
-  midi_bus.add_node(&fake_bus_addr, Arc::new(RwLock::new(fake_bus_node)));
-  let midi_bus = Arc::new(RwLock::new(midi_bus));
+  let config_path = std::env::var(HERO_STUDIO_CONFIG)
+    .unwrap_or_else(|_| DEFAULT_HERO_STUDIO_CONFIG.to_string());
 
   let config = Config::from_file(config_path.as_str())?;
   println!("{:#?}", config);
 
+  let mut midi_bus = MidiBus::new();
+
+  let midi = Midi::new();
+
+  // TODO create a driver from the configuration
+  let midi_driver_id = *midi.drivers().first().unwrap();
+
+  let midi_driver = midi
+    .driver(midi_driver_id, APP_NAME)
+    .map_err(|cause| MainError::GetMidiDriver { cause })?;
+
+  for destination in midi_driver.destinations() {
+    if let Ok(bus_node) = destination.open() {
+      println!("Adding MIDI destination to the bus: {}", destination.name());
+      midi_bus.add_node(&BusAddress::new(), bus_node);
+    }
+  }
+
   let audio_config = config.audio.clone();
   let config_lock = Arc::new(RwLock::new(config));
 
+  let midi_bus = Arc::new(RwLock::new(midi_bus));
   let mut studio = Studio::new(config_lock, midi_bus);
   studio.song_mut().set_loop_end(BarsTime::new(2, 0, 0, 0));
 
@@ -89,13 +74,13 @@ fn main() -> Result<(), Error> {
 
   let mut stream = audio_start(
     &pa_ctx,
-    midi_mutex.clone(),
     audio_config,
     studio_lock.clone(),
   )?;
 
   println!("Started");
   std::thread::sleep(std::time::Duration::from_secs(1));
+
   println!("Play");
   studio_lock
     .write()

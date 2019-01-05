@@ -2,11 +2,11 @@
 # input_port = { name = "xyz" }
 # output_port = "none"
 sample_rate = 44100
-frames = 1500
+frames = 100
 
 [metronome]
 enabled = true
-port = { name = "metronome" }
+port = { name = "IAC Driver Bus 1" }
 # bar_note = { key = 72 }
 # beat_note = { channel = 0, key = 65, velocity = 100 }
 

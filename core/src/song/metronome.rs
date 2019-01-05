@@ -65,11 +65,11 @@ impl Metronome {
         let note_time = segment.play_time + advanced_ticks.to_clock(signature, tempo);
 
         if next_beat == next_bar {
-          println!("Metronome: |> {:?}", bars_time);
+          // println!("Metronome: |> {:?}", bars_time);
           self.send_note(note_time, &self.config.bar_note, signature, tempo);
           next_bar += self.bar_ticks;
         } else {
-          println!("Metronome: ~> {:?}", bars_time);
+          // println!("Metronome: ~> {:?}", bars_time);
           self.send_note(note_time, &self.config.beat_note, signature, tempo);
         }
         next_beat += self.beat_ticks;
@@ -86,7 +86,7 @@ impl Metronome {
       for bus_addr in self.bus_addresses.iter() {
         if let Some(bus_node_lock) = midi_bus.get_node_mut(bus_addr) {
           if let Ok(mut bus_node) = bus_node_lock.write() {
-            bus_node.send(
+            bus_node.send_message(
               start_time,
               &Message::NoteOn {
                 channel: note.channel,
@@ -94,7 +94,7 @@ impl Metronome {
                 velocity: note.velocity,
               },
             );
-            bus_node.send(
+            bus_node.send_message(
               end_time,
               &Message::NoteOff {
                 channel: note.channel,

@@ -92,12 +92,13 @@ pub enum Message {
   TuneRequest,
 
   // --- System Real-Time Messages
-  /// Start the current sequence playing.
-  /// (This message will be followed with Timing Clocks).
-  Start,
 
   /// Timing Clock. Sent 24 times per quarter note when synchronization is required.
   TimingClock,
+
+  /// Start the current sequence playing.
+  /// (This message will be followed with Timing Clocks).
+  Start,
 
   /// Continue at the point the sequence was Stopped
   Continue,
