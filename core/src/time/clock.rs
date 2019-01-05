@@ -73,6 +73,7 @@ impl Sub for ClockTime {
 
   fn sub(self, rhs: ClockTime) -> ClockTime {
     ClockTime(self.0 - rhs.0)
+    // FIXME thread '<unnamed>' panicked at 'attempt to subtract with overflow', core/src/time/clock.rs:75:15
   }
 }
 

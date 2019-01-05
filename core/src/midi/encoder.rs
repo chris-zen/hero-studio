@@ -173,14 +173,180 @@ mod test {
       vec![0b10010001, 65, 120])
   }
 
-  // #[test]
-  // pub fn polyphonic_key_pressure() {
-  //   assert_encoding(
-  //     &Message::PolyphonicKeyPressure { channel: 1, key: 65, velocity: 120 },
-  //     vec![0b10010001, 65, 120])
-  // }
+  #[test]
+  pub fn polyphonic_key_pressure() {
+    assert_encoding(
+      &Message::PolyphonicKeyPressure { channel: 1, key: 65, value: 120 },
+      vec![0b10100001, 65, 120])
+  }
 
-  // thread '<unnamed>' panicked at 'attempt to subtract with overflow', core/src/time/clock.rs:75:15
+  #[test]
+  pub fn control_change() {
+    assert_encoding(
+      &Message::ControlChange { channel: 1, controller: 65, value: 120 },
+      vec![0b10110001, 65, 120])
+  }
+
+  #[test]
+  pub fn program_change() {
+    assert_encoding(
+      &Message::ProgramChange { channel: 1, value: 120 },
+      vec![0b11000001, 120])
+  }
+
+  #[test]
+  pub fn channel_pressure() {
+    assert_encoding(
+      &Message::ChannelPressure { channel: 1, value: 120 },
+      vec![0b11010001, 120])
+  }
+
+  #[test]
+  pub fn pitch_bend() {
+    assert_encoding(
+      &Message::PitchBend { channel: 1, value: 0b10101010101010 },
+      vec![0b11100001, 0b0101010, 0b1010101])
+  }
+
+  #[test]
+  pub fn all_sound_off() {
+    assert_encoding(
+      &Message::AllSoundOff { channel: 1 },
+      vec![0b10110001, 120, 0])
+  }
+
+  #[test]
+  pub fn reset_all_controllers() {
+    assert_encoding(
+      &Message::ResetAllControllers { channel: 1 },
+      vec![0b10110001, 121, 0])
+  }
+
+  #[test]
+  pub fn local_control_off() {
+    assert_encoding(
+      &Message::LocalControlOff { channel: 1 },
+      vec![0b10110001, 122, 0])
+  }
+
+  #[test]
+  pub fn local_control_on() {
+    assert_encoding(
+      &Message::LocalControlOn { channel: 1 },
+      vec![0b10110001, 122, 127])
+  }
+
+  #[test]
+  pub fn all_notes_off() {
+    assert_encoding(
+      &Message::AllNotesOff { channel: 1 },
+      vec![0b10110001, 123, 0])
+  }
+
+  #[test]
+  pub fn omni_mode_off() {
+    assert_encoding(
+      &Message::OmniModeOff { channel: 1 },
+      vec![0b10110001, 124, 0])
+  }
+
+  #[test]
+  pub fn mono_mode_on() {
+    assert_encoding(
+      &Message::MonoModeOn { channel: 1, num_channels: 5 },
+      vec![0b10110001, 126, 5])
+  }
+
+  #[test]
+  pub fn poly_mode_on() {
+    assert_encoding(
+      &Message::PolyModeOn { channel: 1 },
+      vec![0b10110001, 127, 0])
+  }
+
+  #[test]
+  pub fn sysex() {
+    assert_encoding(
+      &Message::SysEx { data: vec![1, 2, 3, 4, 5] },
+      vec![0b11110000, 1, 2, 3, 4, 5, 0b11110111])
+  }
+
+  #[test]
+  pub fn mtc_quarter_frame() {
+    assert_encoding(
+      &Message::MTCQuarterFrame { msg_type: 2, value: 5 },
+      vec![0b11110001, 0b0100101])
+  }
+
+  #[test]
+  pub fn song_position_pointer() {
+    assert_encoding(
+      &Message::SongPositionPointer { beats: 0b10101010101010 },
+      vec![0b11110010, 0b0101010, 0b1010101])
+  }
+
+  #[test]
+  pub fn song_select() {
+    assert_encoding(
+      &Message::SongSelect { song: 54 },
+      vec![0b11110011, 54])
+  }
+
+  #[test]
+  pub fn tune_request() {
+    assert_encoding(
+      &Message::TuneRequest,
+      vec![0b11110110])
+  }
+
+  #[test]
+  pub fn timing_clock() {
+    assert_encoding(
+      &Message::TimingClock,
+      vec![0b11111000])
+  }
+
+  #[test]
+  pub fn start() {
+    assert_encoding(
+      &Message::Start,
+      vec![0b11111010])
+  }
+
+  #[test]
+  pub fn test_continue() {
+    assert_encoding(
+      &Message::Continue,
+      vec![0b11111011])
+  }
+
+  #[test]
+  pub fn stop() {
+    assert_encoding(
+      &Message::Stop,
+      vec![0b11111100])
+  }
+
+  #[test]
+  pub fn active_sensing() {
+    assert_encoding(
+      &Message::ActiveSensing,
+      vec![0b11111110])
+  }
+
+  #[test]
+  pub fn system_reset() {
+    assert_encoding(
+      &Message::SystemReset,
+      vec![0b11111111])
+  }
+
+  #[test]
+  pub fn unknown() {
+    assert_encoding(
+      &Message::Unknown(vec![1, 2, 3, 4]),
+      vec![1, 2, 3, 4])
+  }
 
   fn assert_encoding(msg: &Message, expected: Vec<u8>) {
     let data_len = Encoder::data_size(msg);
@@ -190,52 +356,3 @@ mod test {
     assert_eq!(data, expected);
   }
 }
-/*
-      Message::PolyphonicKeyPressure { channel, key, value } => out[..3]
-        .copy_from_slice(&[status_and_channel(0b1010, channel), u7(key), u7(value)]),
-      Message::ControlChange { channel, controller, value } => out[..3]
-        .copy_from_slice(&[status_and_channel(0b1011, channel), u7(controller), u7(value)]),
-      Message::ProgramChange { channel, value } => out[..2]
-        .copy_from_slice(&[status_and_channel(0b1100, channel), u7(value)]),
-      Message::ChannelPressure { channel, value } => out[..2]
-        .copy_from_slice(&[status_and_channel(0b1101, channel), u7(value)]),
-      Message::PitchBend { channel, value } => out[..3]
-        .copy_from_slice(&[status_and_channel(0b1110, channel), u14_lsb(value), u14_msb(value)]),
-      Message::AllSoundOff { channel } => out[..3]
-        .copy_from_slice(&[status_and_channel(0b1011, channel), 120, 0]),
-      Message::ResetAllControllers { channel } => out[..3]
-        .copy_from_slice(&[status_and_channel(0b1011, channel), 121, 0]),
-      Message::LocalControlOff { channel } => out[..3]
-        .copy_from_slice(&[status_and_channel(0b1011, channel), 122, 0]),
-      Message::LocalControlOn { channel } => out[..3]
-        .copy_from_slice(&[status_and_channel(0b1011, channel), 122, 127]),
-      Message::AllNotesOff { channel } => out[..3]
-        .copy_from_slice(&[status_and_channel(0b1011, channel), 123, 0]),
-      Message::OmniModeOff { channel } => out[..3]
-        .copy_from_slice(&[status_and_channel(0b1011, channel), 124, 0]),
-      Message::OmniModeOn { channel } => out[..3]
-        .copy_from_slice(&[status_and_channel(0b1011, channel), 125, 0]),
-      Message::MonoModeOn { channel, num_channels } => out[..3]
-        .copy_from_slice(&[status_and_channel(0b1011, channel), 126, u7(num_channels)]),
-      Message::PolyModeOn { channel } => out[..3]
-        .copy_from_slice(&[status_and_channel(0b1011, channel), 127, 0]),
-      Message::SysEx { data } => {
-        out[0] = 0b11110000;
-        out[1..=data.len()].copy_from_slice(&data);
-        out[data.len() + 1] = 0b11110111
-      },
-      Message::MTCQuarterFrame { msg_type, value } => out[..2]
-        .copy_from_slice(&[0b11110001, (u3(msg_type) << 4) | u4(value)]),
-      Message::SongPositionPointer { beats } => out[..3]
-        .copy_from_slice(&[0b11110010, u14_lsb(beats), u14_msb(beats)]),
-      Message::SongSelect { song } => out[..2]
-        .copy_from_slice(&[0b11110011, u7(song)]),
-      Message::TuneRequest => out[0] = 0b11110110,
-      Message::TimingClock => out[0] = 0b11111000,
-      Message::Start => out[0] = 0b11111010,
-      Message::Continue => out[0] = 0b11111011,
-      Message::Stop => out[0] = 0b11111100,
-      Message::ActiveSensing => out[0] = 0b11111110,
-      Message::SystemReset => out[0] = 0b11111111,
-      Message::Unknown(unk_data) => out.copy_from_slice(&unk_data),
-*/
