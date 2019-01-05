@@ -92,7 +92,6 @@ pub enum Message {
   TuneRequest,
 
   // --- System Real-Time Messages
-
   /// Timing Clock. Sent 24 times per quarter note when synchronization is required.
   TimingClock,
 

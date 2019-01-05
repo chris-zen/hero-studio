@@ -11,8 +11,8 @@ pub mod transport;
 
 use crate::config::ConfigLock;
 use crate::midi::bus::MidiBusLock;
-use crate::time::{BarsTime, SampleRate, Signature, TicksTime};
 use crate::studio::AudioTime;
+use crate::time::{BarsTime, SampleRate, Signature, TicksTime};
 
 use self::{
   metronome::Metronome,
