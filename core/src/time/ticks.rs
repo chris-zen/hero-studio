@@ -5,7 +5,7 @@ use std::{
 
 use crate::time::{clock, ClockTime, Signature, Tempo};
 
-pub const TICKS_RESOLUTION: u64 = 960;
+pub const TICKS_RESOLUTION: u64 = 9600;
 
 #[derive(Debug, Eq, Copy, Clone)]
 pub struct TicksTime(u64);

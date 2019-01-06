@@ -105,11 +105,14 @@ impl Song {
 
   fn process_segment(&mut self, segment: &Segment) {
     // println!(
-    //   "=> Segment [{:06?}, {:06?}) [{:010?}, {:010?}) @ {:010?}",
+    //   "=> Segment T [{:06?}, {:06?}) <{:06?}> C [{:010?}, {:010?}) <{:010?}> @ PT {:06?} PC {:010?}",
     //   u64::from(segment.start_ticks),
     //   u64::from(segment.end_ticks),
+    //   u64::from(segment.segment_ticks),
     //   segment.start_time.units(),
     //   segment.end_time.units(),
+    //   segment.segment_time.units(),
+    //   u64::from(segment.play_ticks),
     //   segment.play_time.units()
     // );
 
