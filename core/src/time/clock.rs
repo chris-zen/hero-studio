@@ -9,6 +9,7 @@ pub const NANOS_PER_SECOND: u64 = 1_000_000_000;
 
 pub type UnitType = u64;
 pub const UNITS_PER_SECOND: UnitType = NANOS_PER_SECOND as UnitType;
+const UNITS_PER_NANO: UnitType = NANOS_PER_SECOND / UNITS_PER_SECOND;
 
 const SECONDS_PER_MINUTE: u64 = 60;
 pub const UNITS_PER_MINUTE: u64 = UNITS_PER_SECOND * SECONDS_PER_MINUTE;
@@ -36,6 +37,10 @@ impl ClockTime {
 
   pub fn units(&self) -> UnitType {
     self.0
+  }
+
+  pub fn to_nanos(&self) -> u64 {
+    self.0 as u64 / UNITS_PER_NANO
   }
 
   pub fn to_seconds(&self) -> f64 {
@@ -68,6 +73,7 @@ impl Sub for ClockTime {
 
   fn sub(self, rhs: ClockTime) -> ClockTime {
     ClockTime(self.0 - rhs.0)
+    // FIXME thread '<unnamed>' panicked at 'attempt to subtract with overflow', core/src/time/clock.rs:75:15
   }
 }
 

@@ -157,13 +157,13 @@ impl Default for Metronome {
       port: MidiPort::SystemDefault,
       bar_note: MetronomeNote {
         channel: 0,
-        key: 72,
+        key: 84,
         velocity: 127,
         duration: 16,
       },
       beat_note: MetronomeNote {
         channel: 0,
-        key: 65,
+        key: 77,
         velocity: 120,
         duration: 16,
       },

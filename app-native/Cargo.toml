@@ -9,4 +9,5 @@ hero-studio-core = { path = "../core" }
 
 failure = "0.1.3"
 failure_derive = "*"
+coremidi = { git = "https://github.com/chris-zen/coremidi.git", branch = "packet-buffer-with-capacity" }
 portaudio = "0.7.0"

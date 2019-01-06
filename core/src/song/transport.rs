@@ -218,16 +218,16 @@ impl SegmentsIterator {
     let mut ticks_drift_correction = ticks_drift_correction.clone();
     let mut clock_drift_correction = clock_drift_correction.clone();
 
-    println!(
-      "[{:?}] <{:010?}> Err: {:?} Correction {:?} <{:010?}> Err: {:?} Correction {:?}",
-      BarsTime::from_ticks(next_ticks, transport.signature),
-      u64::from(next_ticks),
-      ticks_drift_correction.get_error_accumulated(),
-      ticks_drift_correction.get_last_correction(),
-      next_time.units(),
-      clock_drift_correction.get_error_accumulated(),
-      clock_drift_correction.get_last_correction()
-    );
+    // println!(
+    //   "[{:?}] <{:010?}> Err: {:?} Correction {:?} <{:010?}> Err: {:?} Correction {:?}",
+    //   BarsTime::from_ticks(next_ticks, transport.signature),
+    //   u64::from(next_ticks),
+    //   ticks_drift_correction.get_error_accumulated(),
+    //   ticks_drift_correction.get_last_correction(),
+    //   next_time.units(),
+    //   clock_drift_correction.get_error_accumulated(),
+    //   clock_drift_correction.get_last_correction()
+    // );
 
     let remaining_ticks = ticks_drift_correction.next(samples);
     let remaining_time = clock_drift_correction.next(samples);
