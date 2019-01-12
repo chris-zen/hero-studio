@@ -1,5 +1,11 @@
+mod portmidi;
+pub use self::portmidi::ID as PORT_MIDI_ID;
+
 #[cfg(all(target_os = "macos"))]
 mod coremidi;
+
+#[cfg(all(target_os = "macos"))]
+pub use self::coremidi::ID as CORE_MIDI_ID;
 
 use std::collections::HashMap;
 
@@ -50,6 +56,14 @@ pub struct Midi {
 impl Midi {
   pub fn new() -> Midi {
     let mut drivers: HashMap<MidiDriverId, MidiDriverFactory> = HashMap::new();
+
+    {
+      let portmidi_factory = Box::new(|_app_name: String| {
+        portmidi::PortMidiDriver::new()
+          .map(|driver| Box::new(driver) as Box<MidiDriver>)
+      });
+      drivers.insert(portmidi::ID, portmidi_factory);
+    }
 
     if cfg!(all(target_os = "macos")) {
       let driver_factory = Box::new(|app_name: String| {
