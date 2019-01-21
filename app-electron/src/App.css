@@ -1,0 +1,25 @@
+html, body, #root {
+  height: 100%;
+  margin: 0px;
+  padding: 0;
+}
+
+.r {
+  border: 1px solid white;
+  border-radius: 6px;
+  background-color: #666;
+  margin: 2px;
+  height: 100%;
+  width: 100%;
+}
+
+body {
+  font-family: 'Roboto', sans-serif;
+}
+
+.container {
+  display: flex;
+  flex-flow: column wrap;
+  min-height: 100%;
+  color: white;
+}
