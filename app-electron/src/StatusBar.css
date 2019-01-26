@@ -1,0 +1,7 @@
+.statusbar {
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-start;
+  height: 28px;
+  /* padding: 6px; */
+}

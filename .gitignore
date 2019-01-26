@@ -7,3 +7,4 @@ pkg/
 wasm-pack.log
 .idea/
 *.iml
+.DS_Store

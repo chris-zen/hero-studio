@@ -1,0 +1,26 @@
+.workspace {
+  flex: 1;
+  /* padding: 6px; */
+  position: relative;
+  overflow: hidden;
+}
+
+.vsplitter > .layout-splitter {
+  width: 6px !important;
+  background-color: #333 !important;
+}
+
+.vsplitter > .layout-splitter:hover {
+  background-color: #666 !important;
+  border-radius: 6px;
+}
+
+.hsplitter > .layout-splitter {
+  height: 6px !important;
+  background-color: #333 !important;
+}
+
+.hsplitter > .layout-splitter:hover {
+  background-color: #666 !important;
+  border-radius: 6px;
+}
