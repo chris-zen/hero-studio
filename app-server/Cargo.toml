@@ -1,5 +1,5 @@
 [package]
-name = "app-native"
+name = "app-server"
 version = "0.1.0"
 authors = ["Christian Perez-Llamas"]
 edition = "2018"
@@ -7,9 +7,19 @@ edition = "2018"
 [dependencies]
 hero-studio-core = { path = "../core" }
 
+log = "0.4.6"
+log4rs = "0.8.1"
+
 failure = "0.1.3"
 failure_derive = "*"
+
+crossbeam-channel = "0.3.6"
 
 coremidi = { git = "https://github.com/chris-zen/coremidi.git", branch = "packet-buffer-with-capacity" }
 portmidi = "^0.2"
 portaudio = "^0.7"
+
+[dependencies.websocket]
+version = "0.22.2"
+default-features = false
+features = ["sync-ssl"]

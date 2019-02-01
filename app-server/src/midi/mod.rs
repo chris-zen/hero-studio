@@ -10,7 +10,7 @@ pub use self::coremidi::ID as CORE_MIDI_ID;
 use std::collections::HashMap;
 
 use failure::Fail;
-use failure_derive;
+// use failure_derive;
 
 use hero_studio_core::midi::bus::BusNodeLock;
 use hero_studio_core::time::ClockTime;

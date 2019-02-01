@@ -1,3 +1,5 @@
+use log::{debug};
+
 use std::collections::HashSet;
 use std::iter::FromIterator;
 use std::rc::Rc;
@@ -20,6 +22,12 @@ const MIDI_BUF_LEN: usize = 8 * 1024;
 pub struct PortMidiDriver {
   context: Rc<PortMidi>,
 }
+
+// impl Drop for PortMidiDriver {
+//   fn drop(&mut self) {
+//     println!("PortMidiDriver::Drop");
+//   }
+// }
 
 impl PortMidiDriver {
   pub fn new() -> MidiResult<PortMidiDriver> {
@@ -82,6 +90,12 @@ pub struct PortMidiDestination {
   device: DeviceInfo,
 }
 
+// impl Drop for PortMidiDestination {
+//   fn drop(&mut self) {
+//     println!("PortMidiDestination::Drop");
+//   }
+// }
+
 impl MidiEndpoint for PortMidiDestination {
   fn name(&self) -> String {
     self.name.clone()
@@ -106,7 +120,7 @@ impl MidiDestination for PortMidiDestination {
           name: self.name.clone(),
           features,
           port,
-        })) as Arc<RwLock<BusNode>>
+        })) as BusNodeLock
       })
   }
 }
@@ -116,6 +130,12 @@ struct OutputBusNode {
   features: HashSet<NodeFeature>,
   port: OutputPort,
 }
+
+// impl Drop for OutputBusNode {
+//   fn drop(&mut self) {
+//     println!("OutputBusNode::Drop");
+//   }
+// }
 
 impl BusNode for OutputBusNode {
   fn name(&self) -> &str {
@@ -131,7 +151,7 @@ impl BusNode for OutputBusNode {
   }
 
   fn send_message(&mut self, time: ClockTime, msg: &Message) {
-    // println!(">>> {:?} {:?}", time, msg);
+    // trace!(">>> {:?} {:?}", time, msg);
     let timestamp = (time.to_nanos() / 1000) as u32;
     let data_size = Encoder::data_size(msg);
     let mut data = Vec::with_capacity(data_size);
