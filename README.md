@@ -15,7 +15,8 @@ Suggestions are welcome.
 This is a multi-project composed by:
 
 - [core](core): The core data model and logic.
-- [app-native](app-native): The native application that handles Audio/MIDI and uses the core.
+- [app-server](app-server): The native application that handles Audio/MIDI and uses the core.
+- [app-electron](app-electron): The UI written with Typescript and Electron.
 
 More sub-projects will come depending on how I decide to build the UI.
 
