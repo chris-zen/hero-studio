@@ -13,7 +13,7 @@ pub struct Note {
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
-enum NoteEvent {
+pub enum NoteEvent {
   NoteStart {
     key: Key,
     velocity: f64,

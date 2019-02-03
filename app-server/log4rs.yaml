@@ -1,0 +1,14 @@
+appenders:
+  stdout:
+    kind: console
+    encoder:
+      pattern: "{h({d(%Y-%m-%d %H:%M:%S)} {l:5.5} [{T}] [{t}] {m})}{n}"
+
+root:
+  level: trace
+  appenders:
+    - stdout
+
+# loggers:
+#   app::backend::db:
+#     level: info
