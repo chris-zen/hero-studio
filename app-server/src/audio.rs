@@ -1,3 +1,5 @@
+use log::{debug, trace};
+
 use failure::Error;
 // use failure_derive;
 
@@ -26,25 +28,25 @@ pub fn audio_start(
   audio_config: AudioConfig,
   studio_lock: Arc<RwLock<Studio>>,
 ) -> Result<PortAudioStream, Error> {
-  println!("PortAudio:");
-  println!("version: {}", pa.version());
-  println!("version text: {:?}", pa.version_text());
-  println!("host count: {}", pa.host_api_count()?);
+  trace!("PortAudio:");
+  trace!("  version: {}", pa.version());
+  trace!("  version text: {:?}", pa.version_text());
+  trace!("  host count: {}", pa.host_api_count()?);
 
   let default_host = pa.default_host_api()?;
-  println!("default host: {:#?}", pa.host_api_info(default_host));
+  trace!("  default host: {:#?}", pa.host_api_info(default_host));
 
-  println!("All devices:");
+  trace!("All devices:");
   for device in pa.devices()? {
     let (idx, info) = device?;
-    println!("--------------------------------------- {:?}", idx);
-    println!("{:#?}", &info);
+    trace!("--------------------------------------- {:?}", idx);
+    trace!("{:#?}", &info);
   }
 
   // TODO get device from config
   let def_input = pa.default_input_device()?;
   let input_info = pa.device_info(def_input)?;
-  println!("Default input device info: {:#?}", &input_info);
+  trace!("Default input device info: {:#?}", &input_info);
 
   // Construct the input stream parameters.
   let latency = input_info.default_low_input_latency;
@@ -52,7 +54,7 @@ pub fn audio_start(
 
   let def_output = pa.default_output_device()?;
   let output_info = pa.device_info(def_output)?;
-  println!("Default output device info: {:#?}", &output_info);
+  trace!("Default output device info: {:#?}", &output_info);
 
   // Construct the output stream parameters.
   let latency = output_info.default_low_output_latency;
@@ -88,13 +90,15 @@ pub fn audio_start(
   // Construct a stream with input and output sample types of f32.
   let mut stream = pa.open_non_blocking_stream(settings, callback)?;
 
+  debug!("Starting the audio stream ...");
+
   stream.start()?;
 
   Ok(stream)
 }
 
 pub fn audio_close(stream: &mut PortAudioStream) -> Result<(), portaudio::Error> {
-  println!("Stopping and closing the stream ...");
+  debug!("Stopping and closing the audio stream ...");
   stream.stop()?;
   stream.close()
 }
