@@ -1,10 +1,14 @@
-use log::{info, debug};
-
 use std::sync::{Arc, RwLock};
+use std::time::Duration;
+use std::rc::Rc;
+
+use log::{info, debug};
 
 use failure;
 use failure::{Error, Fail};
-use failure_derive;
+// use failure_derive;
+
+use crossbeam_channel::Receiver;
 
 use portaudio;
 
@@ -13,16 +17,19 @@ use hero_studio_core::midi::bus::{BusAddress, MidiBus};
 use hero_studio_core::{config::Config, config::Audio as AudioConfig, studio::Studio, time::BarsTime};
 
 mod midi;
-use crate::midi::{Midi, MidiDriver, MidiError, PORT_MIDI_ID, CORE_MIDI_ID};
+use crate::midi::{Midi, MidiDriver, MidiError, PORT_MIDI_ID/*, CORE_MIDI_ID*/};
 
 mod audio;
-use crate::audio::{audio_close, audio_start};
+use crate::audio::{PortAudioDriver, PortAudioStream};
 
 mod server;
 use crate::server::{Server, Message, ALL_PORTS};
 
 // mod reactor;
-// mod events;
+// use crate::reactor::Reactor;
+
+mod events;
+use crate::events::Event;
 
 const APP_NAME: &'static str = "Hero Studio";
 
@@ -44,8 +51,6 @@ enum MainError {
   GetMidiDriver { cause: MidiError },
 }
 
-type Stream = portaudio::stream::Stream<portaudio::stream::NonBlocking, portaudio::stream::Duplex<f32, f32>>;
-
 fn main() -> Result<(), Error> {
 
   init_logging()?;
@@ -54,19 +59,21 @@ fn main() -> Result<(), Error> {
 
   let audio_config = config.audio.clone();
 
-  let (midi_bus, midi_driver) = init_midi_bus(&config)?;
+  let (midi_driver, midi_bus) = init_midi(&config)?;
 
   let studio = init_studio(config, midi_bus)?;
 
   let studio_lock = Arc::new(RwLock::new(studio));
 
-  let (pa_ctx, mut stream) = init_audio(audio_config, studio_lock.clone())?;
+  let (audio_driver, stream) = init_audio(audio_config)?;
 
   // TODO get port from config
   let server = init_server(3001)?;
 
+  // let reactor = init_reactor(&server, audio_rx)?;
+
   debug!("Started");
-  std::thread::sleep(std::time::Duration::from_secs(1));
+  audio_driver.sleep(Duration::from_secs(1));
 
   debug!("Play");
   studio_lock
@@ -74,10 +81,9 @@ fn main() -> Result<(), Error> {
     .map(|mut studio| studio.play(false))
     .map_err(|_err| MainError::StudioWriteLock)?;
 
-  // Loop while the non-blocking stream is active.
-  while let Ok(true) = stream.is_active() {
-    pa_ctx.sleep(1000);
-  }
+  stream.wait();
+
+  // reactor.run();
 
   debug!("Closing server ...");
 
@@ -85,7 +91,9 @@ fn main() -> Result<(), Error> {
 
   debug!("Closing audio ...");
 
-  audio_close(&mut stream)?;
+  stream.close()?;
+
+  // audio_close(&mut stream)?;
 
   Ok(())
 }
@@ -112,7 +120,7 @@ fn init_config() -> Result<Config, Error> {
   Ok(config)
 }
 
-fn init_midi_bus(_config: &Config) -> Result<(MidiBus, Box<dyn MidiDriver>), Error> {
+fn init_midi(_config: &Config) -> Result<(Box<dyn MidiDriver>, MidiBus), Error> {
 
   info!("Initialising MIDI ...");
 
@@ -139,7 +147,7 @@ fn init_midi_bus(_config: &Config) -> Result<(MidiBus, Box<dyn MidiDriver>), Err
     }
   }
 
-  Ok((midi_bus, midi_driver))
+  Ok((midi_driver, midi_bus))
 }
 
 fn init_studio(config: Config, midi_bus: MidiBus) -> Result<Studio, Error> {
@@ -156,16 +164,31 @@ fn init_studio(config: Config, midi_bus: MidiBus) -> Result<Studio, Error> {
   Ok(studio)
 }
 
-fn init_audio(audio_config: AudioConfig, studio_lock: Arc<RwLock<Studio>>) -> Result<(portaudio::PortAudio, Stream), Error> {
+fn init_audio(audio_config: AudioConfig) -> Result<(Rc<PortAudioDriver>, PortAudioStream), Error> {
 
   info!("Initialising audio ...");
 
-  let pa_ctx = portaudio::PortAudio::new()?;
+  // let (audio_tx, audio_rx) = crossbeam_channel::unbounded::<Event>();
 
-  let stream = audio_start(&pa_ctx, audio_config, studio_lock)?;
+  let driver = PortAudioDriver::new().map(Rc::new)?;
+  let mut stream = PortAudioStream::new(driver.clone(), audio_config)?;
+  stream.start()?;
 
-  Ok((pa_ctx, stream))
+  Ok((driver, stream))
 }
+
+// fn init_audio(audio_config: AudioConfig, studio_lock: Arc<RwLock<Studio>>) -> Result<(portaudio::PortAudio, Stream, Receiver<Event>), Error> {
+
+//   info!("Initialising audio ...");
+
+//   let (audio_tx, audio_rx) = crossbeam_channel::unbounded::<Event>();
+
+//   let pa_ctx = portaudio::PortAudio::new()?;
+
+//   let stream = audio_start(&pa_ctx, audio_config, audio_tx, studio_lock)?;
+
+//   Ok((pa_ctx, stream, audio_rx))
+// }
 
 fn init_server(port: u16) -> Result<Server, Error> {
   info!("Initialising the websocket server ...");
@@ -193,3 +216,8 @@ fn init_server(port: u16) -> Result<Server, Error> {
 
   Ok(server)
 }
+
+// fn init_reactor(server: &Server, audio_rx: Receiver<Event>) -> Result<Reactor, Error> {
+//   let reactor = Reactor::new(server, audio_rx);
+//   Ok(reactor)
+// }
