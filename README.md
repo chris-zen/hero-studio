@@ -39,7 +39,7 @@ sudo apt-get install libportaudio2
 Finally, you can run the project:
 
 ```sh
-cd app-native
+cd app-server
 cargo run --release
 ```
 
@@ -58,7 +58,10 @@ cargo test
 - [x] core: MIDI bus system
 - [x] core: Implement a basic metronome using MIDI notes
 - [x] core: Management of time and sync between different clocks: Audio, Midi, Host, Ticks
-- [x] app-native: Build MIDI output abstraction to send MIDI events to a device using CoreMIDI as an initial impl (in progress)
+- [x] app-native: Build MIDI output abstraction to send MIDI events to a device (CoreMIDI and PortMIDI supported)
+- [x] app-electron: Basic transport UI
+- [x] app-server: Add a WebSockets server
+- [ ] app-server: Refactoring the internal Audio/MIDI logic to be lockfree
+- [ ] app-electron/app-server: synchronise UI and Audio/MIDI through WebSocket events
 - [ ] core: Filling MIDI output buffers from the Song clips (initially choose one type of clip between pianoroll, step-sequencer, drum-box).
-- [ ] Start exploring UI integration
 - [ ] ...
