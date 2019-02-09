@@ -4,43 +4,46 @@ use log::{debug, info, trace, warn};
 
 use crossbeam_channel::{Receiver, Select, Sender};
 
-use audio_thread_priority::{
-  demote_current_thread_from_real_time, promote_current_thread_to_real_time, RtPriorityHandle,
-};
-
 use hero_studio_core::{config::Audio as AudioConfig, studio::Studio};
 
 use crate::audio::{AudioWork, CHANNELS, MAX_FRAMES};
+use crate::realtime_thread::RealTimeAudioPriority;
 
 struct WorkerThread {
   studio: Studio,
-  buffer_size: usize,
+  audio_config: AudioConfig,
   audio_buffers: Vec<Box<[f32; MAX_FRAMES]>>,
+  rta_priority: Option<RealTimeAudioPriority>,
 }
 
 impl WorkerThread {
-  fn new(studio: Studio, buffer_size: usize) -> WorkerThread {
+  fn new(studio: Studio, audio_config: AudioConfig) -> WorkerThread {
     let audio_buffers = vec![
       Box::new([0f32; MAX_FRAMES]),
       Box::new([0f32; MAX_FRAMES]),
       Box::new([0f32; MAX_FRAMES]),
     ];
 
+    let rta_priority = Self::promote_to_real_time(&audio_config);
+
     WorkerThread {
       studio,
-      buffer_size,
+      audio_config,
       audio_buffers,
+      rta_priority,
     }
   }
 
   fn prepare_audio_buffer(&mut self) -> Option<Box<[f32; MAX_FRAMES]>> {
     self.audio_buffers.pop().map(|mut buffer| {
-      for i in 0..self.buffer_size {
-        let v = (i / 2) as f32 / self.buffer_size as f32;
-        let j = i * 2;
-        buffer[j] = v;
-        buffer[j + 1] = v;
-      }
+      // for i in 0..self.buffer_size {
+      //   let v = (i / 2) as f32 / self.buffer_size as f32;
+      //   let j = i * 2;
+      //   buffer[j] = v;
+      //   buffer[j + 1] = v;
+      // }
+
+
       buffer
     })
   }
@@ -59,6 +62,22 @@ impl WorkerThread {
         debug!("Out of buffers");
       }
     };
+  }
+
+  fn promote_to_real_time(audio_config: &AudioConfig) -> Option<RealTimeAudioPriority> {
+    match RealTimeAudioPriority::promote(audio_config.sample_rate, audio_config.frames.into()) {
+      Ok(rta_priority) => {
+        debug!("Worker thread has now real-time priority");
+        Some(rta_priority)
+      }
+      Err(err) => {
+        warn!(
+          "Couldn't promote the Worker thread into real time: {:?}",
+          err
+        );
+        None
+      }
+    }
   }
 }
 
@@ -83,9 +102,7 @@ impl Worker {
     thread::Builder::new()
       .name("worker".into())
       .spawn(move || {
-        let rt_handle = Self::promote_to_real_time(&audio_config);
-
-        let mut wt = WorkerThread::new(studio, buffer_size);
+        let mut wt = WorkerThread::new(studio, audio_config);
 
         wt.send_next_audio_buffer(&audio_tx);
         wt.send_next_audio_buffer(&audio_tx);
@@ -104,42 +121,11 @@ impl Worker {
             _ => unreachable!(),
           };
         }
-
-        Self::demote_from_real_time(rt_handle);
       })
       .unwrap();
   }
 
   pub fn close(&self) {
     info!("Closing Worker ...");
-  }
-
-  fn promote_to_real_time(audio_config: &AudioConfig) -> Option<RtPriorityHandle> {
-    match promote_current_thread_to_real_time(audio_config.frames.into(), audio_config.sample_rate)
-    {
-      Ok(handle) => {
-        debug!("Worker thread has now real-time priority");
-        Some(handle)
-      }
-      Err(err) => {
-        warn!(
-          "Couldn't promote the Worker thread into real time: {:?}",
-          err
-        );
-        None
-      }
-    }
-  }
-
-  fn demote_from_real_time(handle: Option<RtPriorityHandle>) {
-    handle.into_iter().for_each(
-      |handle| match demote_current_thread_from_real_time(handle) {
-        Ok(_ok) => debug!("Restored Worker thread to normal priority"),
-        Err(err) => warn!(
-          "Couldn't bring the Worker thread back to normal priority: {:?}",
-          err
-        ),
-      },
-    );
   }
 }

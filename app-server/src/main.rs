@@ -27,11 +27,10 @@ use crate::audio::{PortAudioDriver, PortAudioStream};
 mod server;
 use crate::server::{Message, Server, ALL_PORTS};
 
-// mod reactor;
-// use crate::reactor::Reactor;
-
 mod events;
 use crate::events::Event;
+
+mod realtime_thread;
 
 mod worker;
 use crate::worker::Worker;
