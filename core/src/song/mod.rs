@@ -45,8 +45,9 @@ impl Song {
       .unwrap();
 
     let transport = Transport::new(sample_rate);
+    let signature = *transport.get_signature();
 
-    let metronome = Metronome::new(metronome_config, &transport, midi_bus.clone());
+    let metronome = Metronome::new(metronome_config, signature, midi_bus.clone());
 
     Song {
       name: name.into(),
@@ -116,7 +117,9 @@ impl Song {
     //   segment.play_time.units()
     // );
 
-    self.metronome.process_segment(segment, &self.transport);
+    let signature = *self.transport.get_signature();
+    let tempo = *self.transport.get_tempo();
+    self.metronome.process_segment(segment, signature, tempo);
 
     for track in self.tracks.iter_mut() {
       // let clips = track.clips_in_range(start_ticks, end_ticks);

@@ -1,8 +1,8 @@
+use std::rc::Rc;
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
-use std::rc::Rc;
 
-use log::{info, debug};
+use log::{debug, info};
 
 use failure;
 use failure::{Error, Fail};
@@ -14,22 +14,27 @@ use portaudio;
 
 use hero_studio_core::midi::bus::{BusAddress, MidiBus};
 
-use hero_studio_core::{config::Config, config::Audio as AudioConfig, studio::Studio, time::BarsTime};
+use hero_studio_core::{
+  config::Audio as AudioConfig, config::Config, config::ConfigLock, studio::Studio, time::BarsTime,
+};
 
 mod midi;
-use crate::midi::{Midi, MidiDriver, MidiError, PORT_MIDI_ID/*, CORE_MIDI_ID*/};
+use crate::midi::{Midi, MidiDriver, MidiError, PORT_MIDI_ID /*, CORE_MIDI_ID*/};
 
 mod audio;
 use crate::audio::{PortAudioDriver, PortAudioStream};
 
 mod server;
-use crate::server::{Server, Message, ALL_PORTS};
+use crate::server::{Message, Server, ALL_PORTS};
 
 // mod reactor;
 // use crate::reactor::Reactor;
 
 mod events;
 use crate::events::Event;
+
+mod worker;
+use crate::worker::Worker;
 
 const APP_NAME: &'static str = "Hero Studio";
 
@@ -44,15 +49,13 @@ enum MainError {
   #[fail(display = "Failed to init logging: {}", cause)]
   LoggingInit { cause: String },
 
-  #[fail(display = "Unable to lock studio for write")]
-  StudioWriteLock,
-
+  // #[fail(display = "Unable to lock studio for write")]
+  // StudioWriteLock,
   #[fail(display = "Failed to get a MIDI driver: {}", cause)]
   GetMidiDriver { cause: MidiError },
 }
 
 fn main() -> Result<(), Error> {
-
   init_logging()?;
 
   let config = init_config()?;
@@ -61,50 +64,52 @@ fn main() -> Result<(), Error> {
 
   let (midi_driver, midi_bus) = init_midi(&config)?;
 
-  let studio = init_studio(config, midi_bus)?;
+  let config_lock = Arc::new(RwLock::new(config));
 
-  let studio_lock = Arc::new(RwLock::new(studio));
+  let studio = init_studio(config_lock.clone(), midi_bus)?;
 
-  let (audio_driver, stream) = init_audio(audio_config)?;
+  // let studio_lock = Arc::new(RwLock::new(studio));
+
+  let (audio_driver, stream) = init_audio(audio_config.clone())?;
+
+  let worker = init_worker(studio, audio_config.clone(), &stream)?;
+
+  drop(audio_config);
 
   // TODO get port from config
   let server = init_server(3001)?;
 
   // let reactor = init_reactor(&server, audio_rx)?;
 
-  debug!("Started");
-  audio_driver.sleep(Duration::from_secs(1));
+  // debug!("Started");
+  // audio_driver.sleep(Duration::from_secs(1));
 
-  debug!("Play");
-  studio_lock
-    .write()
-    .map(|mut studio| studio.play(false))
-    .map_err(|_err| MainError::StudioWriteLock)?;
+  // debug!("Play");
+  // studio_lock
+  //   .write()
+  //   .map(|mut studio| studio.play(false))
+  //   .map_err(|_err| MainError::StudioWriteLock)?;
 
   stream.wait();
 
-  // reactor.run();
-
-  debug!("Closing server ...");
+  worker.close();
 
   server.close();
 
-  debug!("Closing audio ...");
-
   stream.close()?;
-
-  // audio_close(&mut stream)?;
 
   Ok(())
 }
 
 fn init_logging() -> Result<(), Error> {
-  let log_config_path =
-    std::env::var(HERO_STUDIO_LOG_CONFIG)
-      .unwrap_or_else(|_| DEFAULT_HERO_STUDIO_LOG_CONFIG.to_string());
+  let log_config_path = std::env::var(HERO_STUDIO_LOG_CONFIG)
+    .unwrap_or_else(|_| DEFAULT_HERO_STUDIO_LOG_CONFIG.to_string());
 
-  log4rs::init_file(log_config_path.as_str(), Default::default())
-    .map_err(|err| MainError::LoggingInit { cause: err.to_string() })?;
+  log4rs::init_file(log_config_path.as_str(), Default::default()).map_err(|err| {
+    MainError::LoggingInit {
+      cause: err.to_string(),
+    }
+  })?;
 
   Ok(())
 }
@@ -113,7 +118,7 @@ fn init_config() -> Result<Config, Error> {
   let config_path =
     std::env::var(HERO_STUDIO_CONFIG).unwrap_or_else(|_| DEFAULT_HERO_STUDIO_CONFIG.to_string());
 
-  debug!("Loading studio configuration from {} ...", config_path);
+  info!("Loading studio configuration from {} ...", config_path);
   let config = Config::from_file(config_path.as_str())?;
   debug!("{:#?}", config);
 
@@ -121,7 +126,6 @@ fn init_config() -> Result<Config, Error> {
 }
 
 fn init_midi(_config: &Config) -> Result<(Box<dyn MidiDriver>, MidiBus), Error> {
-
   info!("Initialising MIDI ...");
 
   let midi = Midi::new();
@@ -142,7 +146,10 @@ fn init_midi(_config: &Config) -> Result<(Box<dyn MidiDriver>, MidiBus), Error> 
   for destination in midi_driver.destinations() {
     debug!("=> {:?}", destination.name());
     if let Ok(bus_node) = destination.open() {
-      debug!("   Adding MIDI destination to the bus: {}", destination.name());
+      debug!(
+        "   Adding MIDI destination to the bus: {}",
+        destination.name()
+      );
       midi_bus.add_node(&BusAddress::new(), bus_node);
     }
   }
@@ -150,14 +157,12 @@ fn init_midi(_config: &Config) -> Result<(Box<dyn MidiDriver>, MidiBus), Error> 
   Ok((midi_driver, midi_bus))
 }
 
-fn init_studio(config: Config, midi_bus: MidiBus) -> Result<Studio, Error> {
-
+fn init_studio(config: ConfigLock, midi_bus: MidiBus) -> Result<Studio, Error> {
   info!("Initialising the studio ...");
 
-  let config_lock = Arc::new(RwLock::new(config));
   let midi_bus = Arc::new(RwLock::new(midi_bus));
 
-  let mut studio = Studio::new(config_lock, midi_bus);
+  let mut studio = Studio::new(config, midi_bus);
 
   studio.song_mut().set_loop_end(BarsTime::new(2, 0, 0, 0));
 
@@ -165,7 +170,6 @@ fn init_studio(config: Config, midi_bus: MidiBus) -> Result<Studio, Error> {
 }
 
 fn init_audio(audio_config: AudioConfig) -> Result<(Rc<PortAudioDriver>, PortAudioStream), Error> {
-
   info!("Initialising audio ...");
 
   // let (audio_tx, audio_rx) = crossbeam_channel::unbounded::<Event>();
@@ -176,19 +180,6 @@ fn init_audio(audio_config: AudioConfig) -> Result<(Rc<PortAudioDriver>, PortAud
 
   Ok((driver, stream))
 }
-
-// fn init_audio(audio_config: AudioConfig, studio_lock: Arc<RwLock<Studio>>) -> Result<(portaudio::PortAudio, Stream, Receiver<Event>), Error> {
-
-//   info!("Initialising audio ...");
-
-//   let (audio_tx, audio_rx) = crossbeam_channel::unbounded::<Event>();
-
-//   let pa_ctx = portaudio::PortAudio::new()?;
-
-//   let stream = audio_start(&pa_ctx, audio_config, audio_tx, studio_lock)?;
-
-//   Ok((pa_ctx, stream, audio_rx))
-// }
 
 fn init_server(port: u16) -> Result<Server, Error> {
   info!("Initialising the websocket server ...");
@@ -215,6 +206,20 @@ fn init_server(port: u16) -> Result<Server, Error> {
   // });
 
   Ok(server)
+}
+
+fn init_worker(
+  studio: Studio,
+  audio_config: AudioConfig,
+  stream: &PortAudioStream,
+) -> Result<Worker, Error> {
+  let worker = Worker::new();
+
+  let (audio_tx, audio_rx) = stream.channel();
+
+  worker.start(studio, audio_config, audio_tx, audio_rx);
+
+  Ok(worker)
 }
 
 // fn init_reactor(server: &Server, audio_rx: Receiver<Event>) -> Result<Reactor, Error> {

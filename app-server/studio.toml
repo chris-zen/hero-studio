@@ -2,7 +2,7 @@
 # input_port = { name = "xyz" }
 # output_port = "none"
 sample_rate = 44100
-frames = 128
+frames = 256
 
 [metronome]
 enabled = true
