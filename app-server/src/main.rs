@@ -63,9 +63,7 @@ fn main() -> Result<(), Error> {
 
   let (midi_driver, midi_bus) = init_midi(&config)?;
 
-  let config_lock = Arc::new(RwLock::new(config));
-
-  let studio = init_studio(config_lock.clone(), midi_bus)?;
+  let studio = init_studio(config, midi_bus)?;
 
   // let studio_lock = Arc::new(RwLock::new(studio));
 
@@ -156,7 +154,7 @@ fn init_midi(_config: &Config) -> Result<(Box<dyn MidiDriver>, MidiBus), Error> 
   Ok((midi_driver, midi_bus))
 }
 
-fn init_studio(config: ConfigLock, midi_bus: MidiBus) -> Result<Studio, Error> {
+fn init_studio(config: Config, midi_bus: MidiBus) -> Result<Studio, Error> {
   info!("Initialising the studio ...");
 
   let midi_bus = Arc::new(RwLock::new(midi_bus));

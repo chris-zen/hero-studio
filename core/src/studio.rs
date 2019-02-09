@@ -1,6 +1,6 @@
 use std::fmt;
 
-use crate::config::{Config, ConfigLock};
+use crate::config::Config;
 use crate::midi::bus::MidiBusLock;
 use crate::song::Song;
 use crate::time::ClockTime;
@@ -25,7 +25,7 @@ impl AudioTime {
 }
 
 pub struct Studio {
-  config: ConfigLock,
+  config: Config,
   midi_bus: MidiBusLock,
   song: Song,
 }
@@ -33,14 +33,18 @@ pub struct Studio {
 unsafe impl Send for Studio {}
 
 impl Studio {
-  pub fn new(config: ConfigLock, midi_bus: MidiBusLock) -> Studio {
-    let song = Song::new("untitled", config.clone(), midi_bus.clone());
+  pub fn new(config: Config, midi_bus: MidiBusLock) -> Studio {
+    let song = Song::new("untitled", &config, midi_bus.clone());
 
     Studio {
       config,
       midi_bus,
       song,
     }
+  }
+
+  pub fn config(&self) -> &Config {
+    &self.config
   }
 
   pub fn song(&self) -> &Song {
