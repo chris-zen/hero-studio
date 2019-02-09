@@ -9,7 +9,7 @@ pub mod source;
 pub mod track;
 pub mod transport;
 
-use crate::config::ConfigLock;
+use crate::config::Config;
 use crate::midi::bus::MidiBusLock;
 use crate::studio::AudioTime;
 use crate::time::{BarsTime, SampleRate, Signature, TicksTime};
@@ -22,27 +22,19 @@ use self::{
 
 pub struct Song {
   name: String,
-
-  config: ConfigLock,
-
   transport: Transport,
-
   metronome: Metronome,
-
   tracks: Vec<Track>,
-
   midi_bus: MidiBusLock,
 }
 
 impl Song {
-  pub fn new<T>(name: T, config: ConfigLock, midi_bus: MidiBusLock) -> Song
+  pub fn new<T>(name: T, config: &Config, midi_bus: MidiBusLock) -> Song
   where
     T: Into<String>,
   {
-    let (sample_rate, metronome_config) = config
-      .read()
-      .map(|cfg| (cfg.audio.sample_rate, cfg.metronome.clone()))
-      .unwrap();
+    let sample_rate = config.audio.sample_rate;
+    let metronome_config = config.metronome.clone();
 
     let transport = Transport::new(sample_rate);
     let signature = *transport.get_signature();
@@ -51,7 +43,6 @@ impl Song {
 
     Song {
       name: name.into(),
-      config: config.clone(),
       transport: transport,
       metronome,
       tracks: Vec::new(),

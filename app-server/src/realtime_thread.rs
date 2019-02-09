@@ -1,8 +1,6 @@
 #[cfg(target_os = "macos")]
 use audio_thread_priority::{
-  demote_current_thread_from_real_time,
-  promote_current_thread_to_real_time,
-  RtPriorityHandle,
+  demote_current_thread_from_real_time, promote_current_thread_to_real_time, RtPriorityHandle,
 };
 
 pub type Result<T> = std::result::Result<T, RealTimeAudioPriorityError>;
@@ -41,7 +39,9 @@ impl RealTimeAudioPriority {
   #[cfg(any(target_os = "macos", target_os = "windows"))]
   fn promote_rt(sample_rate: u32, buffer_size: u32) -> Result<RealTimeAudioPriority> {
     promote_current_thread_to_real_time(buffer_size.into(), sample_rate.into())
-      .map(|handle| RealTimeAudioPriority { handle: Some(handle) })
+      .map(|handle| RealTimeAudioPriority {
+        handle: Some(handle),
+      })
       .map_err(|_err| RealTimeAudioPriorityError {})
   }
 
@@ -59,8 +59,7 @@ impl RealTimeAudioPriority {
   }
 
   #[cfg(target_os = "linux")]
-  fn demote_rt(&mut self) {
-  }
+  fn demote_rt(&mut self) {}
 
   #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
   fn promote_rt(sample_rate: u32, buffer_size: u32) -> Result<RealTimeAudioPriority> {
@@ -68,8 +67,7 @@ impl RealTimeAudioPriority {
   }
 
   #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
-  fn demote_rt(&mut self) {
-  }
+  fn demote_rt(&mut self) {}
 }
 
 impl Drop for RealTimeAudioPriority {

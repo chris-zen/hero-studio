@@ -13,7 +13,7 @@ struct WorkerThread {
   studio: Studio,
   audio_config: AudioConfig,
   audio_buffers: Vec<Box<[f32; MAX_FRAMES]>>,
-  rta_priority: Option<RealTimeAudioPriority>,
+  _rta_priority: Option<RealTimeAudioPriority>,
 }
 
 impl WorkerThread {
@@ -24,13 +24,13 @@ impl WorkerThread {
       Box::new([0f32; MAX_FRAMES]),
     ];
 
-    let rta_priority = Self::promote_to_real_time(&audio_config);
+    let _rta_priority = Self::promote_to_real_time(&audio_config);
 
     WorkerThread {
       studio,
       audio_config,
       audio_buffers,
-      rta_priority,
+      _rta_priority,
     }
   }
 
@@ -42,7 +42,6 @@ impl WorkerThread {
       //   buffer[j] = v;
       //   buffer[j + 1] = v;
       // }
-
 
       buffer
     })
@@ -66,9 +65,9 @@ impl WorkerThread {
 
   fn promote_to_real_time(audio_config: &AudioConfig) -> Option<RealTimeAudioPriority> {
     match RealTimeAudioPriority::promote(audio_config.sample_rate, audio_config.frames.into()) {
-      Ok(rta_priority) => {
+      Ok(_rta_priority) => {
         debug!("Worker thread has now real-time priority");
-        Some(rta_priority)
+        Some(_rta_priority)
       }
       Err(err) => {
         warn!(
