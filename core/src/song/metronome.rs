@@ -26,10 +26,10 @@ pub struct Metronome {
 }
 
 impl Metronome {
-  pub fn new(config: MetronomeConfig, transport: &Transport, midi_bus: MidiBusLock) -> Metronome {
+  pub fn new(config: MetronomeConfig, signature: Signature, midi_bus: MidiBusLock) -> Metronome {
     let enabled = config.enabled;
 
-    let (bar_duration, beat_duration) = Self::bar_and_beat_duration(*transport.get_signature());
+    let (bar_duration, beat_duration) = Self::bar_and_beat_duration(signature);
 
     let bus_addresses = Self::bus_addresses_from_midi_port(&config.port, &midi_bus);
 
@@ -51,11 +51,8 @@ impl Metronome {
     self.enabled
   }
 
-  pub fn process_segment(&mut self, segment: &Segment, transport: &Transport) {
+  pub fn process_segment(&mut self, segment: &Segment, signature: Signature, tempo: Tempo) {
     if self.enabled {
-      let signature = *transport.get_signature();
-      let tempo = *transport.get_tempo();
-
       let mut next_bar_position = Self::ceil_ticks(segment.start_position, self.bar_duration);
       let mut next_beat_position = Self::ceil_ticks(segment.start_position, self.beat_duration);
 

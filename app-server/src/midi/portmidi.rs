@@ -5,7 +5,7 @@ use std::iter::FromIterator;
 use std::rc::Rc;
 use std::sync::{Arc, RwLock};
 
-use portmidi::{PortMidi, DeviceInfo, OutputPort, MidiEvent, MidiMessage};
+use portmidi::{DeviceInfo, MidiEvent, MidiMessage, OutputPort, PortMidi};
 
 use super::{MidiDestination, MidiDriver, MidiDriverId, MidiEndpoint, MidiError, MidiResult};
 use hero_studio_core::midi::{
@@ -56,7 +56,8 @@ impl MidiDriver for PortMidiDriver {
   // }
 
   fn destinations(&self) -> Vec<Box<dyn MidiDestination>> {
-    self.context
+    self
+      .context
       .devices()
       .into_iter()
       .flat_map(|devices| {
@@ -71,7 +72,7 @@ impl MidiDriver for PortMidiDriver {
               name: device.name().clone(),
               default: index == 0,
               context: Rc::clone(&self.context),
-              device: device.clone()
+              device: device.clone(),
             }) as Box<MidiDestination>
           })
       })
@@ -160,21 +161,32 @@ impl BusNode for OutputBusNode {
     Encoder::encode(msg, slice);
     match msg {
       Message::SysEx { data } => {
-        self.port.write_sysex(timestamp, data.as_slice()).unwrap_or(());
-      },
+        self
+          .port
+          .write_sysex(timestamp, data.as_slice())
+          .unwrap_or(());
+      }
       _ => {
         let message = match data_size {
-          1 => MidiMessage { status: slice[0], data1: 0, data2: 0 },
-          2 => MidiMessage { status: slice[0], data1: slice[1], data2: 0 },
-          _ => MidiMessage { status: slice[0], data1: slice[1], data2: slice[2] },
+          1 => MidiMessage {
+            status: slice[0],
+            data1: 0,
+            data2: 0,
+          },
+          2 => MidiMessage {
+            status: slice[0],
+            data1: slice[1],
+            data2: 0,
+          },
+          _ => MidiMessage {
+            status: slice[0],
+            data1: slice[1],
+            data2: slice[2],
+          },
         };
-        let event = MidiEvent {
-          message,
-          timestamp
-        };
+        let event = MidiEvent { message, timestamp };
         self.port.write_event(event).unwrap_or(());
       }
     }
   }
 }
-
