@@ -62,11 +62,6 @@ pub enum Message {
   PolyModeOn { channel: U4 },
 
   // --- System Common Messages
-  /// This message type allows manufacturers to create their own messages (such
-  /// as bulk dumps, patch parameters, and other non-spec data) and provides a mechanism for
-  /// creating additional MIDI Specification messages.
-  SysEx { data: Vec<U7> },
-
   /// MIDI Time Code Quarter Frame.
   /// The type determines how to interpret the value:
   /// 0 Current Frames Low Nibble
@@ -115,7 +110,4 @@ pub enum Message {
   /// Reset all receivers in the system to power-up status. This should be used sparingly,
   /// preferably under manual control. In particular, it should not be sent on power-up.
   SystemReset,
-
-  /// Unknown data. Used by the decoder when the data can not be decoded.
-  Unknown(Vec<u8>),
 }

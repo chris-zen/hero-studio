@@ -1,9 +1,11 @@
 use std::fmt;
 
-use crate::config::Config;
-use crate::midi::bus::MidiBusLock;
+use crate::config::{Config, MidiPort};
+use crate::midi::bus::{BusAddress, BusQuery, MidiBusLock, NodeClass, NodeFeature};
+use crate::metronome::Metronome;
+use crate::transport::{Segment, Transport};
 use crate::song::Song;
-use crate::time::ClockTime;
+use crate::time::{ClockTime, BarsTime};
 
 pub type Seconds = f64;
 
@@ -27,6 +29,9 @@ impl AudioTime {
 pub struct Studio {
   config: Config,
   midi_bus: MidiBusLock,
+  transport: Transport,
+  metronome: Metronome,
+  metronome_bus_addresses: Vec<BusAddress>,
   song: Song,
 }
 
@@ -34,11 +39,23 @@ unsafe impl Send for Studio {}
 
 impl Studio {
   pub fn new(config: Config, midi_bus: MidiBusLock) -> Studio {
-    let song = Song::new("untitled", &config, midi_bus.clone());
+    let song = Song::new("untitled", &config);
+
+    let sample_rate = config.audio.sample_rate;
+    let transport = Transport::new(sample_rate);
+
+    let metronome_config = config.metronome.clone();
+    let signature = *transport.get_signature();
+    let metronome = Metronome::new(metronome_config, signature);
+    let metronome_bus_addresses =
+      Self::bus_addresses_from_midi_port(&config.metronome.port, &midi_bus);
 
     Studio {
       config,
       midi_bus,
+      transport,
+      metronome,
+      metronome_bus_addresses,
       song,
     }
   }
@@ -55,8 +72,25 @@ impl Studio {
     &mut self.song
   }
 
-  pub fn play(&mut self, restart: bool) {
-    self.song.play(restart);
+  pub fn set_loop_enabled(&mut self, enabled: bool) {
+    self.transport.set_loop_enabled(enabled);
+  }
+
+  pub fn set_loop_start(&mut self, position: BarsTime) {
+    self.transport.set_loop_start(position);
+  }
+
+  pub fn set_loop_end(&mut self, position: BarsTime) {
+    self.transport.set_loop_end(position)
+  }
+
+  pub fn play(&mut self, restart: bool) -> bool {
+    self.transport.play(restart);
+    self.transport.is_playing()
+  }
+
+  pub fn stop(&mut self) {
+    self.transport.stop();
   }
 
   pub fn audio_handler(
@@ -71,7 +105,52 @@ impl Studio {
     // schedule midi events to the output ports
     // process the audio for time.output taking into consideration the midi events
 
-    self.song.process(audio_time, frames as u32);
+    if self.transport.is_playing() {
+      self.reset_midi_buffers();
+
+      let master_clock = audio_time.output;
+      let mut segments = self.transport.segments_iterator(master_clock, frames as u32);
+      while let Some(segment) = segments.next(&self.transport) {
+        self.metronome.process_segment(&segment);
+        self.song.process_segment(&segment);
+      }
+      self.transport.update_from_segments(&segments);
+    }
+
+    // TODO some devices might need to keep track of time even when not playing
+  }
+
+  fn reset_midi_buffers(&mut self) {
+    self.metronome.buffer_mut().reset();
+
+    // TODO reset tracks
+  }
+
+  // self.song.process(audio_time, frames as u32);
+
+  fn bus_addresses_from_midi_port(port: &MidiPort, midi_bus: &MidiBusLock) -> Vec<BusAddress> {
+    match port {
+      MidiPort::None => Vec::new(),
+      MidiPort::SystemDefault => Self::bus_addresses_by_query(
+        midi_bus,
+        &BusQuery::new()
+          .class(NodeClass::Destination)
+          .feature(NodeFeature::Default),
+      ),
+      MidiPort::All => {
+        Self::bus_addresses_by_query(midi_bus, &BusQuery::new().class(NodeClass::Destination))
+      }
+      MidiPort::ByName(name) => {
+        Self::bus_addresses_by_query(midi_bus, &BusQuery::new().name(name.as_str()))
+      }
+    }
+  }
+
+  fn bus_addresses_by_query(midi_bus: &MidiBusLock, query: &BusQuery) -> Vec<BusAddress> {
+    midi_bus
+      .read()
+      .map(|bus| bus.addresses_by_query(query))
+      .unwrap_or(Vec::new())
   }
 }
 

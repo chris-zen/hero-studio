@@ -4,6 +4,8 @@
 pub mod color;
 pub mod config;
 pub mod midi;
+pub mod metronome;
+pub mod transport;
 pub mod song;
 pub mod studio;
 pub mod time;
