@@ -161,7 +161,7 @@ fn init_studio(config: Config, midi_bus: MidiBus) -> Result<Studio, Error> {
 
   let mut studio = Studio::new(config, midi_bus);
 
-  studio.song_mut().set_loop_end(BarsTime::new(2, 0, 0, 0));
+  studio.set_loop_end(BarsTime::new(2, 0, 0, 0));
 
   Ok(studio)
 }
