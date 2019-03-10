@@ -26,8 +26,8 @@ pub enum MidiError {
   #[fail(display = "Failed to open a destination: {}", cause)]
   DestinationOpen { cause: String },
 
-  #[fail(display = "Failed to open a source: {}", cause)]
-  SourceOpen { cause: String },
+  // #[fail(display = "Failed to open a source: {}", cause)]
+  // SourceOpen { cause: String },
 }
 
 pub type MidiResult<T> = Result<T, MidiError>;

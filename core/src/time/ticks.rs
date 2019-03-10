@@ -5,7 +5,7 @@ use std::{
 
 use crate::time::{clock, ClockTime, Signature, Tempo};
 
-pub const TICKS_RESOLUTION: u64 = 9600;
+pub const TICKS_RESOLUTION: u64 = 2*2*3*3*5*5*7*11; //34650
 
 #[derive(Debug, Eq, Copy, Clone)]
 pub struct TicksTime(u64);
@@ -26,8 +26,8 @@ impl TicksTime {
 
   pub fn to_clock(&self, signature: Signature, tempo: Tempo) -> ClockTime {
     let ticks_per_minute = TicksTime::per_minute(signature, tempo).0;
-    let clock_units = self.0 * clock::UNITS_PER_MINUTE / ticks_per_minute;
-    ClockTime::new(clock_units)
+    let clock_units = self.0 as u128 * clock::UNITS_PER_MINUTE as u128 / ticks_per_minute as u128;
+    ClockTime::new(clock_units as u64)
   }
 }
 
@@ -131,7 +131,7 @@ mod test {
     let signature = Signature::new(4, 4);
     let tempo = Tempo::new(120);
     let ticks = TicksTime::per_minute(signature, tempo);
-    assert_eq!(ticks.0, 460800);
+    assert_eq!(ticks.0, 33264000);
   }
 
   #[test]

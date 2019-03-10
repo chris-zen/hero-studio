@@ -11,7 +11,6 @@ use crate::config::Config;
 use crate::midi::bus::MidiBusLock;
 use crate::metronome::Metronome;
 use crate::transport::{Transport, Segment};
-use crate::studio::AudioTime;
 use crate::time::{BarsTime, SampleRate, Signature, TicksTime};
 
 use self::track::{Track, TrackMedia};
@@ -22,7 +21,7 @@ pub struct Song {
 }
 
 impl Song {
-  pub fn new<T>(name: T, config: &Config) -> Song
+  pub fn new<T>(name: T, _config: &Config) -> Song
   where
     T: Into<String>,
   {
@@ -43,7 +42,7 @@ impl Song {
     self.name.as_str()
   }
 
-  pub fn process_segment(&mut self, segment: &Segment) {
+  pub fn process_segment(&mut self, _segment: &Segment) {
     // println!(
     //   "=> Segment T [{:06?}, {:06?}) <{:06?}> C [{:010?}, {:010?}) <{:010?}> @ PT {:06?} PC {:010?}",
     //   u64::from(segment.start_ticks),
