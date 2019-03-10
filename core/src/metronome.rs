@@ -3,12 +3,11 @@ use std::rc::Rc;
 
 use crate::config::{Metronome as MetronomeConfig, MetronomeNote};
 use crate::midi;
+use crate::midi::bus::BusAddress;
 use crate::transport::{Segment, Transport};
 use crate::time::{
   ticks::TICKS_RESOLUTION, BarsTime, ClockTime, SampleRate, Signature, Tempo, TicksTime,
 };
-
-const BUFFER_CAPACITY: usize = 256;
 
 pub struct Metronome {
   config: MetronomeConfig,
@@ -17,8 +16,6 @@ pub struct Metronome {
 
   bar_duration: TicksTime,
   beat_duration: TicksTime,
-
-  buffer: Box<midi::Buffer>,
 }
 
 impl Metronome {
@@ -27,14 +24,11 @@ impl Metronome {
 
     let (bar_duration, beat_duration) = Self::bar_and_beat_duration(signature);
 
-    let buffer = Box::new(midi::Buffer::with_capacity(BUFFER_CAPACITY));
-
     Metronome {
       config,
       enabled,
       bar_duration,
       beat_duration,
-      buffer,
     }
   }
 
@@ -46,11 +40,7 @@ impl Metronome {
     self.enabled
   }
 
-  pub fn buffer_mut(&mut self) -> &mut Box<midi::Buffer> {
-    &mut self.buffer
-  }
-
-  pub fn process_segment(&mut self, segment: &Segment) {
+  pub fn process_segment(&mut self, segment: &Segment, buffer: &mut midi::Buffer) {
     if self.enabled {
       let signature = segment.signature;
       let tempo = segment.tempo;
@@ -65,12 +55,12 @@ impl Metronome {
         if next_beat_position == next_bar_position {
           // println!("Metronome: |> {:?}", bars_time);
           let note = &self.config.bar_note;
-          Self::push_note(&mut self.buffer, note_time, note, signature, tempo);
+          Self::push_note(buffer, note_time, note, signature, tempo);
           next_bar_position += self.bar_duration;
         } else {
           // println!("Metronome: ~> {:?}", bars_time);
           let note = &self.config.beat_note;
-          Self::push_note(&mut self.buffer, note_time, note, signature, tempo);
+          Self::push_note(buffer, note_time, note, signature, tempo);
         }
         next_beat_position += self.beat_duration;
       }
@@ -78,7 +68,7 @@ impl Metronome {
   }
 
   fn push_note(
-    buffer: &mut Box<midi::Buffer>,
+    buffer: &mut midi::Buffer,
     start_time: ClockTime,
     note: &MetronomeNote,
     signature: Signature,

@@ -54,12 +54,12 @@ impl BarsTime {
   }
 
   pub fn to_ticks(&self, signature: Signature) -> TicksTime {
-    let num_sixteenths_per_beat = 16 / signature.get_note_value() as u64;
-    let num_ticks_per_beat = num_sixteenths_per_beat * TICKS_RESOLUTION;
-    let num_ticks_per_bar = signature.get_num_beats() as u64 * num_ticks_per_beat;
+    let num_sixteenths_per_beat = 16.0 / signature.get_note_value() as f64;
+    let num_ticks_per_beat = num_sixteenths_per_beat * TICKS_RESOLUTION as f64;
+    let num_ticks_per_bar = signature.get_num_beats() as f64 * num_ticks_per_beat;
     TicksTime::new(
-      self.bars as u64 * num_ticks_per_bar
-        + self.beats as u64 * num_ticks_per_beat
+      self.bars as u64 * num_ticks_per_bar as u64
+        + self.beats as u64 * num_ticks_per_beat as u64
         + self.sixteenths as u64 * TICKS_RESOLUTION
         + self.ticks as u64,
     )

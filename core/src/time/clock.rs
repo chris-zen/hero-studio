@@ -49,8 +49,8 @@ impl ClockTime {
 
   pub fn to_ticks(&self, signature: Signature, tempo: Tempo) -> TicksTime {
     let ticks_per_minute = u64::from(TicksTime::per_minute(signature, tempo));
-    let ticks = self.0 * ticks_per_minute / UNITS_PER_MINUTE;
-    TicksTime::new(ticks)
+    let ticks = self.0 as u128 * ticks_per_minute as u128 / UNITS_PER_MINUTE as u128;
+    TicksTime::new(ticks as u64)
   }
 }
 
