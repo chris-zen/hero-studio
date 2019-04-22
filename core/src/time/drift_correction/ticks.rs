@@ -74,8 +74,8 @@ mod test {
   #[test]
   pub fn ticks_drift_correction_new() {
     let correction = TicksDriftCorrection::new(Signature::new(6, 13), Tempo::new(130), 44100);
-    assert_eq!(correction.ticks_per_sample, 4.190_461_073_318_216);
-    assert_eq!(correction.error_per_sample, -0.000_007_558_578_987_370_399);
+    assert_eq!(correction.ticks_per_sample, 30719.999_958_427_816);
+    assert_eq!(correction.error_per_sample, -0.000_003_779_291_295_680_87);
     assert_eq!(correction.error_accumulated, 0.0);
     assert_eq!(correction.last_correction, 0.0);
   }
@@ -83,11 +83,11 @@ mod test {
   #[test]
   pub fn ticks_drift_correction_next() {
     let mut correction = TicksDriftCorrection::new(Signature::new(6, 7), Tempo::new(120), 44100);
-    for _ in 0..3 {
+    for _ in 0..7 {
       let ticks = correction.next(1000);
-      assert_eq!(ticks, TicksTime::new(7183));
+      assert_eq!(ticks, TicksTime::new(52662857));
     }
     let ticks = correction.next(1000);
-    assert_eq!(ticks, TicksTime::new(7182));
+    assert_eq!(ticks, TicksTime::new(52662858));
   }
 }
