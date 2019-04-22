@@ -7,11 +7,11 @@ pub struct BarsTime {
   bars: u16,
   beats: u16,
   sixteenths: u16,
-  ticks: u16,
+  ticks: u32,
 }
 
 impl BarsTime {
-  pub fn new(bars: u16, beats: u16, sixteenths: u16, ticks: u16) -> BarsTime {
+  pub fn new(bars: u16, beats: u16, sixteenths: u16, ticks: u32) -> BarsTime {
     BarsTime {
       bars,
       beats,
@@ -33,7 +33,7 @@ impl BarsTime {
       bars: (total_beats / u64::from(signature.get_num_beats())) as u16,
       beats: (total_beats % u64::from(signature.get_num_beats())) as u16,
       sixteenths: (total_sixteenths % num_sixteenths_per_beat) as u16,
-      ticks: (num_ticks % TICKS_RESOLUTION) as u16,
+      ticks: (num_ticks % TICKS_RESOLUTION) as u32,
     }
   }
 
@@ -49,7 +49,7 @@ impl BarsTime {
     self.sixteenths
   }
 
-  pub fn get_ticks(&self) -> u16 {
+  pub fn get_ticks(&self) -> u32 {
     self.ticks
   }
 
