@@ -7,7 +7,7 @@ use std::sync::{Arc, RwLock};
 
 use portmidi::{DeviceInfo, MidiEvent, MidiMessage, OutputPort, PortMidi};
 
-use super::{MidiDestination, MidiDriver, MidiDriverId, MidiEndpoint, MidiError, MidiResult};
+use super::{MidiDestination, MidiDriver, MidiEndpoint, MidiError, MidiResult};
 use hero_studio_core::midi::{
   bus::{BusNode, BusNodeLock, NodeClass, NodeFeature},
   encoder::Encoder,
@@ -15,7 +15,7 @@ use hero_studio_core::midi::{
 };
 use hero_studio_core::time::ClockTime;
 
-pub const ID: MidiDriverId = MidiDriverId("PortMIDI");
+pub const ID: &'static str = "PortMIDI";
 
 const MIDI_BUF_LEN: usize = 8 * 1024;
 
@@ -42,13 +42,8 @@ impl PortMidiDriver {
 }
 
 impl MidiDriver for PortMidiDriver {
-  fn id(&self) -> MidiDriverId {
+  fn id(&self) -> &str {
     ID
-  }
-
-  fn get_host_time(&self) -> ClockTime {
-    // TODO !!!
-    ClockTime::zero()
   }
 
   // fn sources(&self) -> Iterator<Item=dyn MidiEndpoint> {
@@ -129,6 +124,7 @@ impl MidiDestination for PortMidiDestination {
 struct OutputBusNode {
   name: String,
   features: HashSet<NodeFeature>,
+  // FIXME include an Rc<PortMidi> to keep it alive while there is an OutputBusNode alive
   port: OutputPort,
 }
 

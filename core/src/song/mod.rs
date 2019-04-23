@@ -8,10 +8,10 @@ pub mod source;
 pub mod track;
 
 use crate::config::Config;
-use crate::midi::bus::MidiBusLock;
 use crate::metronome::Metronome;
-use crate::transport::{Transport, Segment};
+use crate::midi::bus::MidiBusLock;
 use crate::time::{BarsTime, SampleRate, Signature, TicksTime};
+use crate::transport::{Segment, Transport};
 
 use self::track::{Track, TrackMedia};
 

@@ -5,15 +5,15 @@ use std::sync::{Arc, RwLock};
 
 use coremidi::{Client, Destination, Destinations, OutputPort, PacketBuffer};
 
-use super::{MidiDestination, MidiDriver, MidiDriverId, MidiEndpoint, MidiError, MidiResult};
+use super::{MidiDestination, MidiDriver, MidiEndpoint, MidiError, MidiResult};
 use hero_studio_core::midi::{
   bus::{BusNode, BusNodeLock, NodeClass, NodeFeature},
   encoder::Encoder,
   messages::Message,
 };
-use hero_studio_core::time::{clock, ClockTime};
+use hero_studio_core::time::ClockTime;
 
-pub const ID: MidiDriverId = MidiDriverId("CoreMIDI");
+pub const ID: &'static str = "CoreMIDI";
 
 pub struct CoreMidi {
   client: Rc<Client>,
@@ -35,16 +35,8 @@ impl CoreMidi {
 }
 
 impl MidiDriver for CoreMidi {
-  fn id(&self) -> MidiDriverId {
+  fn id(&self) -> &str {
     ID
-  }
-
-  fn get_host_time(&self) -> ClockTime {
-    let host_time = unsafe { external::AudioGetCurrentHostTime() };
-    let nanos = unsafe { external::AudioConvertHostTimeToNanos(host_time) };
-    ClockTime::new(
-      ((nanos as u128 * clock::NANOS_PER_SECOND as u128) / clock::UNITS_PER_SECOND as u128) as u64,
-    )
   }
 
   // fn sources(&self) -> Iterator<Item=dyn MidiEndpoint> {
@@ -115,6 +107,7 @@ struct OutputBusNode {
   name: String,
   features: HashSet<NodeFeature>,
   destination: Rc<Destination>,
+  // FIXME add the Rc<Client>
   port: OutputPort,
 }
 
@@ -148,7 +141,5 @@ mod external {
   #[link(name = "CoreAudio", kind = "framework")]
   extern "C" {
     pub fn AudioConvertNanosToHostTime(inNanos: u64) -> u64;
-    pub fn AudioConvertHostTimeToNanos(inHostTime: u64) -> u64;
-    pub fn AudioGetCurrentHostTime() -> u64;
   }
 }

@@ -1,7 +1,7 @@
-use crate::midi::messages::Message;
-use crate::time::ClockTime;
-use crate::pool::Pool;
 use super::bus::BusAddress;
+use crate::midi::messages::Message;
+use crate::pool::Pool;
+use crate::time::ClockTime;
 
 pub struct Event {
   pub timestamp: ClockTime,
@@ -55,4 +55,3 @@ pub fn new_io_vec_pool(pool_capacity: usize, vec_capacity: usize) -> Pool<IoVec>
   let reset = Box::new(|vec: &mut IoVec| vec.clear());
   Pool::new(pool_capacity, allocator, reset)
 }
-

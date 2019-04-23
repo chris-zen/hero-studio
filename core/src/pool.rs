@@ -10,10 +10,7 @@ pub struct Pool<T> {
 }
 
 impl<T> Pool<T> {
-  pub fn new(capacity: usize,
-             allocator: Box<Allocator<T>>,
-             reset: Box<Reset<T>>) -> Pool<T> {
-
+  pub fn new(capacity: usize, allocator: Box<Allocator<T>>, reset: Box<Reset<T>>) -> Pool<T> {
     let mut items = Vec::<Box<T>>::with_capacity(capacity);
     for _ in 0..capacity {
       items.push((allocator)());

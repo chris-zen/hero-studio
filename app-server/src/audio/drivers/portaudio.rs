@@ -3,34 +3,28 @@ use std::time::Duration;
 
 use log::{debug, info, trace};
 
-use failure::Fail;
-
 use crossbeam_channel::{Receiver, Sender};
 
 use portaudio::{
   DuplexStreamCallbackArgs, DuplexStreamSettings, PortAudio, Stream, StreamParameters,
 };
 
-use hero_studio_core::audio;
 use hero_studio_core::config::Audio as AudioConfig;
 
+use crate::audio::drivers::{AudioError, AudioResult};
+use crate::audio::io::Protocol;
+use crate::audio::io::{AudioIo, AudioIoResult};
+use hero_studio_core::time::ClockTime;
 
 const INTERLEAVED: bool = true;
-pub const CHANNELS: i32 = 2;
-
-#[derive(Debug, Fail)]
-pub enum AudioError {
-  #[fail(display = "PortAudio error: {}", cause)]
-  PortAudioError { cause: portaudio::error::Error },
-}
 
 impl From<portaudio::error::Error> for AudioError {
   fn from(cause: portaudio::error::Error) -> AudioError {
-    AudioError::PortAudioError { cause }
+    AudioError::DriverError {
+      cause: cause.to_string(),
+    }
   }
 }
-
-type AudioResult<T> = Result<T, AudioError>;
 
 type PaStream = Stream<portaudio::NonBlocking, portaudio::Duplex<f32, f32>>;
 
@@ -71,12 +65,21 @@ impl PortAudioDriver {
 pub struct PortAudioStream {
   driver: Rc<PortAudioDriver>,
   stream: PaStream,
-  work_tx: Sender<Box<audio::Protocol>>,
-  completed_rx: Receiver<Box<audio::Protocol>>,
+  num_input_channels: usize,
+  num_output_channels: usize,
 }
 
 impl PortAudioStream {
-  pub fn new(driver: Rc<PortAudioDriver>, config: &AudioConfig) -> AudioResult<PortAudioStream> {
+  pub fn new_channel() -> (Sender<Protocol>, Receiver<Protocol>) {
+    // FIXME use bounded channels !!!
+    crossbeam_channel::unbounded::<Protocol>()
+  }
+
+  pub fn new(
+    driver: Rc<PortAudioDriver>,
+    config: &AudioConfig,
+    mut audio_io: AudioIo,
+  ) -> AudioResult<PortAudioStream> {
     info!("Creating an audio stream ...");
 
     let portaudio = &driver.portaudio;
@@ -85,18 +88,28 @@ impl PortAudioStream {
 
     let def_output = portaudio.default_output_device()?;
     let output_info = portaudio.device_info(def_output)?;
-    trace!("Default output device info: {:#?}", &output_info);
+    debug!("Output device info: {:#?}", &output_info);
 
     let def_input = portaudio.default_input_device()?;
     let input_info = portaudio.device_info(def_input)?;
-    trace!("Default input device info: {:#?}", &input_info);
+    debug!("Input device info: {:#?}", &input_info);
 
     // Construct the stream parameters
     let latency = input_info.default_low_input_latency;
-    let input_params = StreamParameters::<f32>::new(def_input, CHANNELS, INTERLEAVED, latency);
+    let input_params = StreamParameters::<f32>::new(
+      def_input,
+      input_info.max_input_channels,
+      INTERLEAVED,
+      latency,
+    );
 
     let latency = output_info.default_low_output_latency;
-    let output_params = StreamParameters::<f32>::new(def_output, CHANNELS, INTERLEAVED, latency);
+    let output_params = StreamParameters::<f32>::new(
+      def_output,
+      output_info.max_output_channels,
+      INTERLEAVED,
+      latency,
+    );
 
     let sample_rate = config.sample_rate as f64;
     portaudio.is_duplex_format_supported(input_params, output_params, sample_rate)?;
@@ -105,61 +118,64 @@ impl PortAudioStream {
     let num_frames = config.frames as u32;
     let settings = DuplexStreamSettings::new(input_params, output_params, sample_rate, num_frames);
 
-    // TODO use bounded channels !!!
-    let (work_tx, work_rx) = crossbeam_channel::unbounded::<Box<audio::Protocol>>();
-    let (completed_tx, completed_rx) = crossbeam_channel::unbounded::<Box<audio::Protocol>>();
+    let num_input_channels = input_info.max_input_channels as usize;
+    let num_output_channels = output_info.max_output_channels as usize;
 
-    let callback = move |args| Self::callback(args, &work_rx, &completed_tx);
+    let callback = move |args| {
+      Self::callback(
+        args,
+        &mut audio_io,
+        num_input_channels as usize,
+        num_output_channels as usize,
+      )
+    };
 
     let stream = portaudio.open_non_blocking_stream(settings, callback)?;
 
     Ok(PortAudioStream {
       driver,
       stream,
-      work_tx,
-      completed_rx,
+      num_input_channels,
+      num_output_channels,
     })
   }
 
   fn callback(
     args: DuplexStreamCallbackArgs<f32, f32>,
-    work_rx: &Receiver<Box<audio::Protocol>>,
-    completed_tx: &Sender<Box<audio::Protocol>>,
+    audio_io: &mut AudioIo,
+    in_channels: usize,
+    out_channels: usize,
   ) -> portaudio::stream::CallbackResult {
     let DuplexStreamCallbackArgs {
-      // in_buffer,
-      mut out_buffer,
+      in_buffer,
+      out_buffer,
       frames,
       time,
       ..
     } = args;
 
-    match work_rx.try_recv() {
-      Ok(mut work) => {
-        let buffer_size = frames as usize * CHANNELS as usize;
-        out_buffer.copy_from_slice(&work.audio_output()[0..buffer_size]);
-        work.update_times(time.in_buffer_adc, time.out_buffer_dac);
-        drop(completed_tx.send(work));
-      }
-      Err(_err) => {
-        Self::zero_fill(&mut out_buffer);
-        debug!("xrun: {:?} {}", time.out_buffer_dac, _err);
-        // TODO send xrun event
-      }
-    }
-
-    portaudio::Continue
-    // portaudio::Complete
-  }
-
-  fn zero_fill(s: &mut [f32]) {
-    for d in s {
-      *d = 0.0;
+    let in_time = ClockTime::from_seconds(time.in_buffer_adc);
+    let out_time = ClockTime::from_seconds(time.out_buffer_dac);
+    match audio_io.process(
+      frames,
+      in_time,
+      in_channels,
+      in_buffer,
+      out_time,
+      out_channels,
+      out_buffer,
+    ) {
+      AudioIoResult::Continue => portaudio::Continue,
+      AudioIoResult::Stop => portaudio::Complete,
     }
   }
 
-  pub fn channel(&self) -> (Sender<Box<audio::Protocol>>, Receiver<Box<audio::Protocol>>) {
-    (self.work_tx.clone(), self.completed_rx.clone())
+  pub fn num_input_channels(&self) -> usize {
+    self.num_input_channels
+  }
+
+  pub fn num_output_channels(&self) -> usize {
+    self.num_output_channels
   }
 
   pub fn start(&mut self) -> AudioResult<()> {
@@ -183,23 +199,3 @@ impl PortAudioStream {
     self.stream.close().map_err(|err| err.into())
   }
 }
-
-//   // A callback to pass to the non-blocking stream.
-//   let callback = move |DuplexStreamCallbackArgs {
-//                          in_buffer,
-//                          out_buffer,
-//                          frames,
-//                          time,
-//                          ..
-//                        }| {
-//     studio_lock
-//       .write()
-//       .map(|mut studio| {
-//         let audio_time = AudioTime::new(time.current, time.in_buffer_adc, time.out_buffer_dac);
-//         // TODO strategy to handle errors
-//         studio.audio_handler(audio_time, frames, in_buffer, out_buffer);
-//         // TODO send update event
-//         portaudio::Continue
-//       })
-//       .unwrap_or(portaudio::Complete)
-//   };

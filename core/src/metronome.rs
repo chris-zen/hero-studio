@@ -4,10 +4,10 @@ use std::rc::Rc;
 use crate::config::{Metronome as MetronomeConfig, MetronomeNote};
 use crate::midi;
 use crate::midi::bus::BusAddress;
-use crate::transport::{Segment, Transport};
 use crate::time::{
   ticks::TICKS_RESOLUTION, BarsTime, ClockTime, SampleRate, Signature, Tempo, TicksTime,
 };
+use crate::transport::{Segment, Transport};
 
 pub struct Metronome {
   config: MetronomeConfig,

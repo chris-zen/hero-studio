@@ -10,3 +10,6 @@ wasm-pack.log
 .DS_Store
 core-neon/
 app-wasm/
+*.code-workspace
+.vscode/
+*.log

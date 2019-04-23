@@ -339,9 +339,9 @@ impl Server {
     self.server_receive_rx.clone()
   }
 
-  pub fn sender(&self) -> Sender<Message> {
-    self.server_send_tx.clone()
-  }
+  //  pub fn sender(&self) -> Sender<Message> {
+  //    self.server_send_tx.clone()
+  //  }
 
   pub fn close(self) {
     info!("Closing server ...");
