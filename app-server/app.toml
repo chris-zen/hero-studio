@@ -4,8 +4,8 @@
 
 # [midi.buffer_pool]
 # pool_capacity = 256
-# buffer_capacity = 1024
+# item_capacity = 1024
 
-# [midi.io_vec_pool]
-# pool_capacity = 4
-# buffer_capacity = 1024
+[midi.io_vec_pool]
+pool_capacity = 256
+item_capacity = 1024

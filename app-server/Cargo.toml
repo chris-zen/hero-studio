@@ -23,7 +23,7 @@ audio_thread_priority = "0.3.0"
 
 crossbeam-channel = "0.3.6"
 
-coremidi = { git = "https://github.com/chris-zen/coremidi.git", branch = "packet-buffer-with-capacity" }
+coremidi = "0.3.1"
 portmidi = "^0.2"
 portaudio = "^0.7"
 

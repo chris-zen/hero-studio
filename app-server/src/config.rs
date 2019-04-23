@@ -67,7 +67,10 @@ pub struct Audio {
 impl Default for Audio {
   fn default() -> Audio {
     Audio {
-      buffer_pool: PoolWithItemCapacity { pool_capacity: 4, item_capacity: 4096 },
+      buffer_pool: PoolWithItemCapacity {
+        pool_capacity: 4,
+        item_capacity: 4096,
+      },
       protocol_pool: Pool { pool_capacity: 4 },
     }
   }
@@ -83,8 +86,14 @@ pub struct Midi {
 impl Default for Midi {
   fn default() -> Midi {
     Midi {
-      buffer_pool: PoolWithItemCapacity { pool_capacity: 256, item_capacity: 1024 },
-      io_vec_pool: PoolWithItemCapacity { pool_capacity: 4, item_capacity: 1024 },
+      buffer_pool: PoolWithItemCapacity {
+        pool_capacity: 256,
+        item_capacity: 1024,
+      },
+      io_vec_pool: PoolWithItemCapacity {
+        pool_capacity: 4,
+        item_capacity: 1024,
+      },
     }
   }
 }
@@ -97,8 +106,6 @@ pub struct WebSocket {
 
 impl Default for WebSocket {
   fn default() -> WebSocket {
-    WebSocket {
-      port: 3001
-    }
+    WebSocket { port: 3001 }
   }
 }

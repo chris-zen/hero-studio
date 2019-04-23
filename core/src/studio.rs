@@ -1,17 +1,16 @@
 use std::fmt;
 use std::ops::{Deref, DerefMut};
 
+use crate::audio;
 use crate::config::{Config, MidiPort};
-use crate::pool::Pool;
+use crate::metronome::Metronome;
 use crate::midi;
 use crate::midi::bus::{BusAddress, BusQuery, MidiBusLock, NodeClass, NodeFeature};
-use crate::audio;
-use crate::metronome::Metronome;
-use crate::transport::{Segment, Transport};
+use crate::pool::Pool;
 use crate::song::Song;
-use crate::time::{ClockTime, BarsTime};
+use crate::time::{BarsTime, ClockTime};
+use crate::transport::{Segment, Transport};
 
-pub const MAX_AUDIO_BUFFER_SIZE: usize = 2 * 4 * 1024;
 
 fn fill_with_zero(s: &mut [f32]) {
   for d in s {
@@ -21,7 +20,6 @@ fn fill_with_zero(s: &mut [f32]) {
 
 pub struct Studio {
   config: Config,
-  midi_bus: MidiBusLock,
   transport: Transport,
   metronome: Metronome,
   metronome_bus_address: Option<BusAddress>,
@@ -31,8 +29,7 @@ pub struct Studio {
 unsafe impl Send for Studio {}
 
 impl Studio {
-  pub fn new(config: Config, midi_bus: MidiBusLock) -> Studio {
-
+  pub fn new(config: Config) -> Studio {
     let song = Song::new("untitled", &config);
 
     let sample_rate = config.audio.sample_rate;
@@ -40,13 +37,11 @@ impl Studio {
 
     let metronome_config = config.metronome.clone();
     let signature = *transport.get_signature();
-    let metronome_bus_address =
-      Self::bus_address_from_midi_port(&config.metronome.port, &midi_bus);
+    let metronome_bus_address = None; // FIXME Self::bus_address_from_midi_port(&config.metronome.port, &midi_bus);
     let metronome = Metronome::new(metronome_config, signature);
 
     Studio {
       config,
-      midi_bus,
       transport,
       metronome,
       metronome_bus_address,
@@ -87,22 +82,27 @@ impl Studio {
     self.transport.stop();
   }
 
-  pub fn prepare(
+  pub fn process(
     &mut self,
     frames: usize,
-    midi_buffer_pool: &mut Pool<midi::Buffer>,
-    midi_output: &mut midi::IoVec,
+    _input_time: ClockTime,
+    _audio_input_channels: usize,
     _audio_input: &audio::Buffer,
+    audio_output_channels: usize,
     _audio_output: &mut audio::Buffer,
+    midi_buffer_pool: &mut Pool<midi::Buffer>,
+    // TODO midi_input: &midi::IoVec,
+    midi_output: &mut midi::IoVec,
   ) {
-
     if self.transport.is_playing() {
       let mut metronome_buffer = midi_buffer_pool.get_or_alloc();
 
       let base_time = ClockTime::zero();
       let mut segments = self.transport.segments_iterator(base_time, frames as u32);
       while let Some(segment) = segments.next(&self.transport) {
-        self.metronome.process_segment(&segment, &mut metronome_buffer);
+        self
+          .metronome
+          .process_segment(&segment, &mut metronome_buffer);
         self.song.process_segment(&segment);
       }
       self.transport.update_from_segments(&segments);
@@ -114,45 +114,20 @@ impl Studio {
         });
       }
 
-      let out = _audio_output.slice_mut(frames * 2);
+      let out = _audio_output.slice_mut(frames * audio_output_channels);
       fill_with_zero(out);
-      // for i in 0..frames {
-      //   let v = (i / 2) as f32 / frames as f32;
-      //   let j = i * 2;
-      //   _audio_output[j] = v;
-      //   _audio_output[j + 1] = v;
-      // }
-    }
-    else {
-      let out = _audio_output.slice_mut(frames * 2);
-      fill_with_zero(out);
-    }
-  }
 
-  // FIXME Have a dedicated MIDI thread
-  pub fn complete(
-    &mut self,
-    midi_buffer_pool: &mut Pool<midi::Buffer>,
-    midi_output: &mut midi::IoVec,
-    output_time: ClockTime,
-  ) {
-    if let Ok(mut midi_bus) = self.midi_bus.write() {
-      for output in midi_output.iter_mut() {
-        if let Some(buffer) = output.buffer.take() {
-          if let Some(bus_node_lock) = midi_bus.get_node_mut(&output.address) {
-            if let Ok(mut bus_node) = bus_node_lock.write() {
-              for event in buffer.iter() {
-                let timestamp = output_time + event.timestamp;
-                bus_node.send_message(
-                  timestamp,
-                  &event.message,
-                );
-              }
-            }
-          }
-          midi_buffer_pool.release(buffer);
+      for i in 0..frames {
+        let v = i as f32 / frames as f32;
+        let u = i * _audio_input_channels;
+        let j = i * audio_output_channels;
+        for k in 0..audio_output_channels {
+          _audio_output[j + k] = _audio_input[u] + v * 0.20;
         }
       }
+    } else {
+      let out = _audio_output.slice_mut(frames * audio_output_channels);
+      fill_with_zero(out);
     }
   }
 
@@ -180,44 +155,40 @@ impl Studio {
   //     }
   //     self.transport.update_from_segments(&segments);
 
-
   //   }
 
   //   // TODO some devices might need to keep track of time even when not playing
   // }
 
-  fn bus_address_from_midi_port(port: &MidiPort, midi_bus: &MidiBusLock) -> Option<BusAddress> {
-    match port {
-      MidiPort::None => None,
-      MidiPort::SystemDefault => Self::bus_address_by_query(
-        midi_bus,
-        &BusQuery::new()
-          .class(NodeClass::Destination)
-          .feature(NodeFeature::Default),
-      ),
-      MidiPort::All => {
-        None // FIXME We need an specific address for it, or not supported
-      }
-      MidiPort::ByName(name) => {
-        Self::bus_address_by_query(
-          midi_bus,
-          &BusQuery::new()
-            .name(name.as_str()))
-      }
-    }
-  }
-
-  fn bus_address_by_query(midi_bus: &MidiBusLock, query: &BusQuery) -> Option<BusAddress> {
-    midi_bus
-      .read()
-      .map(|bus| {
-        bus
-          .addresses_by_query(query)
-          .first()
-          .map(|address| address.clone())
-      })
-      .unwrap_or(None)
-  }
+//  fn bus_address_from_midi_port(port: &MidiPort, midi_bus: &MidiBusLock) -> Option<BusAddress> {
+//    match port {
+//      MidiPort::None => None,
+//      MidiPort::SystemDefault => Self::bus_address_by_query(
+//        midi_bus,
+//        &BusQuery::new()
+//          .class(NodeClass::Destination)
+//          .feature(NodeFeature::Default),
+//      ),
+//      MidiPort::All => {
+//        None // FIXME We need an specific address for it, or not supported
+//      }
+//      MidiPort::ByName(name) => {
+//        Self::bus_address_by_query(midi_bus, &BusQuery::new().name(name.as_str()))
+//      }
+//    }
+//  }
+//
+//  fn bus_address_by_query(midi_bus: &MidiBusLock, query: &BusQuery) -> Option<BusAddress> {
+//    midi_bus
+//      .read()
+//      .map(|bus| {
+//        bus
+//          .addresses_by_query(query)
+//          .first()
+//          .map(|address| address.clone())
+//      })
+//      .unwrap_or(None)
+//  }
 }
 
 impl fmt::Debug for Studio {

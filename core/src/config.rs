@@ -83,6 +83,7 @@ impl Default for Audio {
 #[serde(default)]
 #[derive(Deserialize, Debug, Clone)]
 pub struct Midi {
+  pub driver_id: String,
   pub default_input: MidiPort,
   pub default_output: MidiPort,
   pub virtual_ports: Vec<MidiVirtualPort>,
@@ -110,6 +111,7 @@ pub struct MidiVirtualPort {
 impl Default for Midi {
   fn default() -> Midi {
     Midi {
+      driver_id: "default".to_string(),
       default_input: MidiPort::All,
       default_output: MidiPort::SystemDefault,
       virtual_ports: Vec::new(),

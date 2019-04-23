@@ -8,7 +8,9 @@ pub enum DecodedMessage {
   /// This message type allows manufacturers to create their own messages (such
   /// as bulk dumps, patch parameters, and other non-spec data) and provides a mechanism for
   /// creating additional MIDI Specification messages.
-  SysEx { data: Vec<U7> },
+  SysEx {
+    data: Vec<U7>,
+  },
 
   /// Unknown data. Used by the decoder when the data can not be decoded.
   Unknown(Vec<u8>), // TODO that should be a pointer to a vector
@@ -70,12 +72,14 @@ impl<'a> Decoder<'a> {
           channel: channel,
           key: key,
           velocity: velocity,
-        }.into(),
+        }
+        .into(),
         false => Message::NoteOff {
           channel: channel,
           key: key,
           velocity: velocity,
-        }.into(),
+        }
+        .into(),
       },
       Err(end) => self.unknown(end),
     }
@@ -87,7 +91,8 @@ impl<'a> Decoder<'a> {
         channel: channel,
         key: key,
         value: pressure,
-      }.into(),
+      }
+      .into(),
       Err(end) => self.unknown(end),
     }
   }
@@ -120,7 +125,8 @@ impl<'a> Decoder<'a> {
         126 => Message::MonoModeOn {
           channel: channel,
           num_channels: value,
-        }.into(),
+        }
+        .into(),
         127 => match value {
           0 => Message::PolyModeOn { channel: channel }.into(),
           _ => self.unknown(self.pos),
@@ -129,7 +135,8 @@ impl<'a> Decoder<'a> {
           channel: channel,
           controller: controller,
           value: value,
-        }.into(),
+        }
+        .into(),
       },
       Err(end) => self.unknown(end),
     }
@@ -140,7 +147,8 @@ impl<'a> Decoder<'a> {
       Ok(program) => Message::ProgramChange {
         channel: channel,
         value: program,
-      }.into(),
+      }
+      .into(),
       Err(end) => self.unknown(end),
     }
   }
@@ -150,7 +158,8 @@ impl<'a> Decoder<'a> {
       Ok(pressure) => Message::ChannelPressure {
         channel: channel,
         value: pressure,
-      }.into(),
+      }
+      .into(),
       Err(end) => self.unknown(end),
     }
   }
@@ -160,7 +169,8 @@ impl<'a> Decoder<'a> {
       Ok((lsb, msb)) => Message::PitchBend {
         channel: channel,
         value: ((msb as U14) << 7) | (lsb as U14),
-      }.into(),
+      }
+      .into(),
       Err(end) => self.unknown(end),
     }
   }
@@ -170,7 +180,8 @@ impl<'a> Decoder<'a> {
       Ok(data) => Message::MTCQuarterFrame {
         msg_type: (data >> 4) & 0x07,
         value: data & 0x0f,
-      }.into(),
+      }
+      .into(),
       Err(end) => self.unknown(end),
     }
   }
@@ -179,7 +190,8 @@ impl<'a> Decoder<'a> {
     match self.next_data2() {
       Ok((lsb, msb)) => Message::SongPositionPointer {
         beats: ((msb as U14) << 7) | (lsb as U14),
-      }.into(),
+      }
+      .into(),
       Err(end) => self.unknown(end),
     }
   }
@@ -303,9 +315,15 @@ mod tests {
   fn next_data_unknown() {
     let data = &vec![0b1000_0000, 64, 0b1000_0001, 0b1000_0010, 12];
     let mut dec = Decoder::new(data);
-    assert_eq!(dec.next(), Some(DecodedMessage::Unknown(vec![0b1000_0000, 64])));
+    assert_eq!(
+      dec.next(),
+      Some(DecodedMessage::Unknown(vec![0b1000_0000, 64]))
+    );
     assert_eq!(dec.next(), Some(DecodedMessage::Unknown(vec![0b1000_0001])));
-    assert_eq!(dec.next(), Some(DecodedMessage::Unknown(vec![0b1000_0010, 12])));
+    assert_eq!(
+      dec.next(),
+      Some(DecodedMessage::Unknown(vec![0b1000_0010, 12]))
+    );
   }
 
   #[test]
@@ -314,19 +332,25 @@ mod tests {
     let mut dec = Decoder::new(data);
     assert_eq!(
       dec.next(),
-      Some(Message::NoteOff {
-        channel: 0b0101,
-        key: 64,
-        velocity: 127
-      }.into())
+      Some(
+        Message::NoteOff {
+          channel: 0b0101,
+          key: 64,
+          velocity: 127
+        }
+        .into()
+      )
     );
     assert_eq!(
       dec.next(),
-      Some(Message::NoteOn {
-        channel: 0b1010,
-        key: 0,
-        velocity: 127
-      }.into())
+      Some(
+        Message::NoteOn {
+          channel: 0b1010,
+          key: 0,
+          velocity: 127
+        }
+        .into()
+      )
     );
     assert_eq!(dec.next(), None);
   }
@@ -337,11 +361,14 @@ mod tests {
     let mut dec = Decoder::new(data);
     assert_eq!(
       dec.next(),
-      Some(Message::PolyphonicKeyPressure {
-        channel: 0b0101,
-        key: 64,
-        value: 127
-      }.into())
+      Some(
+        Message::PolyphonicKeyPressure {
+          channel: 0b0101,
+          key: 64,
+          value: 127
+        }
+        .into()
+      )
     );
     assert_eq!(dec.next(), None);
   }
@@ -352,11 +379,14 @@ mod tests {
     let mut dec = Decoder::new(data);
     assert_eq!(
       dec.next(),
-      Some(Message::ControlChange {
-        channel: 0b0101,
-        controller: 64,
-        value: 127
-      }.into())
+      Some(
+        Message::ControlChange {
+          channel: 0b0101,
+          controller: 64,
+          value: 127
+        }
+        .into()
+      )
     );
     assert_eq!(dec.next(), None);
   }
@@ -367,10 +397,13 @@ mod tests {
     let mut dec = Decoder::new(data);
     assert_eq!(
       dec.next(),
-      Some(Message::ProgramChange {
-        channel: 0b0101,
-        value: 0b0_1010101
-      }.into())
+      Some(
+        Message::ProgramChange {
+          channel: 0b0101,
+          value: 0b0_1010101
+        }
+        .into()
+      )
     );
     assert_eq!(dec.next(), None);
   }
@@ -381,10 +414,13 @@ mod tests {
     let mut dec = Decoder::new(data);
     assert_eq!(
       dec.next(),
-      Some(Message::ChannelPressure {
-        channel: 0b0101,
-        value: 0b0_1010101
-      }.into())
+      Some(
+        Message::ChannelPressure {
+          channel: 0b0101,
+          value: 0b0_1010101
+        }
+        .into()
+      )
     );
     assert_eq!(dec.next(), None);
   }
@@ -395,10 +431,13 @@ mod tests {
     let mut dec = Decoder::new(data);
     assert_eq!(
       dec.next(),
-      Some(Message::PitchBend {
-        channel: 0b0101,
-        value: 0b0_01010101010101
-      }.into())
+      Some(
+        Message::PitchBend {
+          channel: 0b0101,
+          value: 0b0_01010101010101
+        }
+        .into()
+      )
     );
     assert_eq!(dec.next(), None);
   }
@@ -409,10 +448,13 @@ mod tests {
     let mut dec = Decoder::new(data);
     assert_eq!(
       dec.next(),
-      Some(Message::MTCQuarterFrame {
-        msg_type: 0b101,
-        value: 0b1010
-      }.into())
+      Some(
+        Message::MTCQuarterFrame {
+          msg_type: 0b101,
+          value: 0b1010
+        }
+        .into()
+      )
     );
     assert_eq!(dec.next(), None);
   }
@@ -430,15 +472,21 @@ mod tests {
     let mut dec = Decoder::new(data);
     assert_eq!(
       dec.next(),
-      Some(Message::SongPositionPointer {
-        beats: 0b01010101010101
-      }.into())
+      Some(
+        Message::SongPositionPointer {
+          beats: 0b01010101010101
+        }
+        .into()
+      )
     );
     assert_eq!(
       dec.next(),
-      Some(Message::SongPositionPointer {
-        beats: 0b10101010101010
-      }.into())
+      Some(
+        Message::SongPositionPointer {
+          beats: 0b10101010101010
+        }
+        .into()
+      )
     );
     assert_eq!(dec.next(), None);
   }
@@ -447,7 +495,10 @@ mod tests {
   fn decode_song_select() {
     let data = &vec![0b1111_0011u8, 0b0_1010101];
     let mut dec = Decoder::new(data);
-    assert_eq!(dec.next(), Some(Message::SongSelect { song: 0b1010101 }.into()));
+    assert_eq!(
+      dec.next(),
+      Some(Message::SongSelect { song: 0b1010101 }.into())
+    );
     assert_eq!(dec.next(), None);
   }
 
@@ -533,11 +584,14 @@ mod tests {
     let mut dec = Decoder::new(data);
     assert_eq!(
       dec.next(),
-      Some(Message::NoteOff {
-        channel: 0b0101,
-        key: 64,
-        velocity: 127
-      }.into())
+      Some(
+        Message::NoteOff {
+          channel: 0b0101,
+          key: 64,
+          velocity: 127
+        }
+        .into()
+      )
     );
     assert_eq!(
       dec.next(),
@@ -563,7 +617,10 @@ mod tests {
   fn decode_sysex_unexpected_end_interleaved() {
     let data = &vec![0b1111_0000u8, 1, 2, 0b1000_0000u8, 64];
     let mut dec = Decoder::new(data);
-    assert_eq!(dec.next(), Some(DecodedMessage::Unknown(vec![0b1000_0000u8, 64])));
+    assert_eq!(
+      dec.next(),
+      Some(DecodedMessage::Unknown(vec![0b1000_0000u8, 64]))
+    );
     assert_eq!(
       dec.next(),
       Some(DecodedMessage::Unknown(vec![0b1111_0000u8, 1, 2]))
