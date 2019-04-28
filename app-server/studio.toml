@@ -2,20 +2,15 @@
 # input_port = { name = "xyz" }
 # output_port = "none"
 sample_rate = 44100
-frames = 256
+frames = 128
 
 [metronome]
 enabled = true
-# port = { name = "IAC Driver Bus 1" }
-port = "default"
+port = { name = "IAC Driver Bus 1" }
 # bar_note = { key = 72 }
 # beat_note = { channel = 0, key = 65, velocity = 100 }
 
 [midi]
-
-# [midi.buffer_pool]
-# pool_initial_capacity = 256
-# buffer_initial_capacity = 1024
 
 [[midi.output_virtual_ports]]
 name = "metronome"
