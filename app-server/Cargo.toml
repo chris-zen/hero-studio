@@ -10,16 +10,8 @@ hero-studio-core = { path = "../core" }
 log = "0.4.6"
 log4rs = "0.8.1"
 
-serde = "^1.0"
-serde_derive = "^1.0"
-
-toml = "0.4.10"
-
 failure = "0.1.3"
 failure_derive = "*"
-
-# thread-priority = "0.1.0"
-audio_thread_priority = "0.3.0"
 
 crossbeam-channel = "0.3.6"
 

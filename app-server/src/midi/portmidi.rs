@@ -1,11 +1,11 @@
-// use log::{debug};
+use log::{debug};
 
 use std::collections::HashSet;
 use std::iter::FromIterator;
 use std::rc::Rc;
 use std::sync::{Arc, RwLock};
 
-use portmidi::{DeviceInfo, MidiEvent, MidiMessage, OutputPort, PortMidi};
+use portmidi::{PortMidi, DeviceInfo, OutputPort, MidiEvent, MidiMessage};
 
 use super::{MidiDestination, MidiDriver, MidiDriverId, MidiEndpoint, MidiError, MidiResult};
 use hero_studio_core::midi::{
@@ -56,8 +56,7 @@ impl MidiDriver for PortMidiDriver {
   // }
 
   fn destinations(&self) -> Vec<Box<dyn MidiDestination>> {
-    self
-      .context
+    self.context
       .devices()
       .into_iter()
       .flat_map(|devices| {
@@ -72,7 +71,7 @@ impl MidiDriver for PortMidiDriver {
               name: device.name().clone(),
               default: index == 0,
               context: Rc::clone(&self.context),
-              device: device.clone(),
+              device: device.clone()
             }) as Box<MidiDestination>
           })
       })
@@ -159,39 +158,23 @@ impl BusNode for OutputBusNode {
     unsafe { data.set_len(data_size) };
     let slice = data.as_mut_slice();
     Encoder::encode(msg, slice);
-    let message = match data_size {
-      1 => MidiMessage {
-        status: slice[0],
-        data1: 0,
-        data2: 0,
+    match msg {
+      Message::SysEx { data } => {
+        self.port.write_sysex(timestamp, data.as_slice()).unwrap_or(());
       },
-      2 => MidiMessage {
-        status: slice[0],
-        data1: slice[1],
-        data2: 0,
-      },
-      3 => MidiMessage {
-        status: slice[0],
-        data1: slice[1],
-        data2: slice[2],
-      },
-      _ => unreachable!(),
-    };
-    let event = MidiEvent { message, timestamp };
-    self.port.write_event(event).unwrap_or(());
+      _ => {
+        let message = match data_size {
+          1 => MidiMessage { status: slice[0], data1: 0, data2: 0 },
+          2 => MidiMessage { status: slice[0], data1: slice[1], data2: 0 },
+          _ => MidiMessage { status: slice[0], data1: slice[1], data2: slice[2] },
+        };
+        let event = MidiEvent {
+          message,
+          timestamp
+        };
+        self.port.write_event(event).unwrap_or(());
+      }
+    }
   }
-
-  // fn send_sysex_message(&mut self, time: ClockTime, msg: &[U7]) {
-  //   // trace!(">>> {:?} {:?}", time, msg);
-  //   let timestamp = (time.to_nanos() / 1000) as u32;
-  //   let data_size = Encoder::sysex_data_size(msg);
-  //   let mut data = Vec::with_capacity(data_size);
-  //   unsafe { data.set_len(data_size) };
-  //   let slice = data.as_mut_slice();
-  //   Encoder::sysex_encode(msg, slice);
-  //   self
-  //     .port
-  //     .write_sysex(timestamp, data.as_slice())
-  //     .unwrap_or(());
-  // }
 }
+
