@@ -85,7 +85,6 @@ impl Default for Audio {
 pub struct Midi {
   pub default_input: MidiPort,
   pub default_output: MidiPort,
-
   pub virtual_ports: Vec<MidiVirtualPort>,
 }
 

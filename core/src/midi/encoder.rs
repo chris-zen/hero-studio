@@ -52,7 +52,6 @@ impl Encoder {
       Message::OmniModeOn { .. } => 3,
       Message::MonoModeOn { .. } => 3,
       Message::PolyModeOn { .. } => 3,
-      Message::SysEx { data } => data.len() + 2,
       Message::MTCQuarterFrame { .. } => 2,
       Message::SongPositionPointer { .. } => 3,
       Message::SongSelect { .. } => 2,
@@ -63,7 +62,6 @@ impl Encoder {
       Message::Stop => 1,
       Message::ActiveSensing => 1,
       Message::SystemReset => 1,
-      Message::Unknown(data) => data.len(),
     }
   }
 
@@ -132,11 +130,6 @@ impl Encoder {
       Message::PolyModeOn { channel } => {
         out[..3].copy_from_slice(&[status_and_channel(0b1011, channel), 127, 0])
       }
-      Message::SysEx { data } => {
-        out[0] = 0b11110000;
-        out[1..=data.len()].copy_from_slice(&data);
-        out[data.len() + 1] = 0b11110111
-      }
       Message::MTCQuarterFrame { msg_type, value } => {
         out[..2].copy_from_slice(&[0b11110001, (u3(msg_type) << 4) | u4(value)])
       }
@@ -151,8 +144,17 @@ impl Encoder {
       Message::Stop => out[0] = 0b11111100,
       Message::ActiveSensing => out[0] = 0b11111110,
       Message::SystemReset => out[0] = 0b11111111,
-      Message::Unknown(unk_data) => out.copy_from_slice(&unk_data),
     }
+  }
+
+  pub fn sysex_data_size(data: &[U7]) -> usize {
+    data.len() + 2
+  }
+
+  pub fn sysex_encode(data: &[U7], out: &mut [u8]) {
+    out[0] = 0b11110000;
+    out[1..=data.len()].copy_from_slice(&data);
+    out[data.len() + 1] = 0b11110111
   }
 }
 
@@ -341,10 +343,8 @@ mod test {
 
   #[test]
   pub fn sysex() {
-    assert_encoding(
-      &Message::SysEx {
-        data: vec![1, 2, 3, 4, 5],
-      },
+    assert_sysex_encoding(
+      vec![1, 2, 3, 4, 5],
       vec![0b11110000, 1, 2, 3, 4, 5, 0b11110111],
     )
   }
@@ -410,16 +410,19 @@ mod test {
     assert_encoding(&Message::SystemReset, vec![0b11111111])
   }
 
-  #[test]
-  pub fn unknown() {
-    assert_encoding(&Message::Unknown(vec![1, 2, 3, 4]), vec![1, 2, 3, 4])
-  }
-
   fn assert_encoding(msg: &Message, expected: Vec<u8>) {
     let data_len = Encoder::data_size(msg);
     let mut data = Vec::<u8>::with_capacity(data_len);
     unsafe { data.set_len(data_len) };
     Encoder::encode(msg, data.as_mut_slice());
+    assert_eq!(data, expected);
+  }
+
+  fn assert_sysex_encoding(msg: Vec<U7>, expected: Vec<u8>) {
+    let data_len = Encoder::sysex_data_size(&msg);
+    let mut data = Vec::<u8>::with_capacity(data_len);
+    unsafe { data.set_len(data_len) };
+    Encoder::sysex_encode(&msg, data.as_mut_slice());
     assert_eq!(data, expected);
   }
 }
