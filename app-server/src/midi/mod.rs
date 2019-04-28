@@ -26,8 +26,8 @@ pub enum MidiError {
   #[fail(display = "Failed to open a destination: {}", cause)]
   DestinationOpen { cause: String },
 
-  #[fail(display = "Failed to open a source: {}", cause)]
-  SourceOpen { cause: String },
+  // #[fail(display = "Failed to open a source: {}", cause)]
+  // SourceOpen { cause: String },
 }
 
 pub type MidiResult<T> = Result<T, MidiError>;
@@ -59,8 +59,7 @@ impl Midi {
 
     {
       let portmidi_factory = Box::new(|_app_name: String| {
-        portmidi::PortMidiDriver::new()
-          .map(|driver| Box::new(driver) as Box<MidiDriver>)
+        portmidi::PortMidiDriver::new().map(|driver| Box::new(driver) as Box<MidiDriver>)
       });
       drivers.insert(portmidi::ID, portmidi_factory);
     }
