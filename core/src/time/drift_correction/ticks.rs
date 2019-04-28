@@ -85,16 +85,12 @@ mod test {
 
   #[test]
   pub fn ticks_drift_correction_next() {
-    let mut correction = TicksDriftCorrection::new(Signature::new(4, 4), Tempo::new(60), 44100);
-    let ticks = correction.next(100);
-    assert_eq!(ticks, TicksTime::new(4608000));
-    let ticks = correction.next(100);
-    assert_eq!(ticks, TicksTime::new(4608000));
-    let ticks = correction.next(100);
-    assert_eq!(ticks, TicksTime::new(4608000));
-    let ticks = correction.next(100);
-    assert_eq!(ticks, TicksTime::new(4608000));
-    let ticks = correction.next(100);
-    assert_eq!(ticks, TicksTime::new(4608000));
+    let mut correction = TicksDriftCorrection::new(Signature::new(6, 11), Tempo::new(131), 44100);
+    for _ in 0..4 {
+      let ticks = correction.next(1000);
+      assert_eq!(ticks, TicksTime::new(36584727));  
+    }
+    let ticks = correction.next(1000);
+    assert_eq!(ticks, TicksTime::new(36584728));
   }
 }
