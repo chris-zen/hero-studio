@@ -13,14 +13,6 @@ os:
 before_deploy:
   - mv target/release/hero-studio "target/release/hero-studio-$TRAVIS_TAG-$TRAVIS_OS_NAME"
 deploy:
-  - provider: cargo
-    skip_cleanup: true
-    on:
-      tags: true
-      condition: "$TRAVIS_RUST_VERSION = stable && $TRAVIS_OS_NAME = linux"
-      branch: master
-    token:
-      secure: "shVhaWLhvSzCdJLlI+5vTEJ8f7hlDkJg0QujH1DHnAeC9bdOiNJ5k1M0YzmrQKMvGwPIttw1gvWeZtw+TfE6j+7Ei3OGLpUQU0fih1jKRws7Z7H3sZcou+gk0tcTIzH3JREYdIo9mIhg9llLjrWueOuWA/0LVO6EEdb3AWptukfY++REJC3t+sMvIO0HFG3zXztbxN8TivLTLazb3hKzMpx3hgI8SoUniSVoH8P2sfL3BIqLyOZviizLv/KWSbFLZslXqXvpk8WJcOIpsxRixIVHbEzz7Ig3mM+i1inm6amtwBuOeFDe+YA5QPEpHuCgjsuCdo+KcWu+dUIRSfaxPPLYRLbIfmrLLItRV7sg5O3qJVp71TLsw7Dfa0kEdSz0BArPaCmLowzWAxYLnEoNoZgAXgywNV/J/o4Ij/o9Uk3mXRj3AXgSPYGaThoO4dux1UiuXNUfzK9+SR3a+Z4cyVYdwt8SrIzoN8ESQyOU4yv4vwBLFnzfgsbyH0DMcbA0QjqTSsOHLfEhRdOllxSe3FgdTatBilW1prtMSMfuR/kXYiUzsKi2dZO97vYmeGk7ug3IsL63uwqFs83TFhxqFDXaoTfRTo38VsTBHYYLN412cVfazVzUQcMQiO/HnhRP28HbLIo3Y5M9HzyOGlLK48Xt+19ioFqU67uKD+KY/XE="
   - provider: releases
     skip_cleanup: true
     on:
