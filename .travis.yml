@@ -1,0 +1,33 @@
+language: rust
+rust:
+- stable
+- beta
+- nightly
+matrix:
+  allow_failures:
+  - rust: nightly
+  fast_finish: true
+os:
+- linux
+- osx
+before_deploy:
+  - mv target/release/hero-studio "target/release/hero-studio-$TRAVIS_TAG-$TRAVIS_OS_NAME"
+deploy:
+  - provider: cargo
+    skip_cleanup: true
+    on:
+      tags: true
+      condition: "$TRAVIS_RUST_VERSION = stable && $TRAVIS_OS_NAME = linux"
+      branch: master
+    token:
+      secure: "shVhaWLhvSzCdJLlI+5vTEJ8f7hlDkJg0QujH1DHnAeC9bdOiNJ5k1M0YzmrQKMvGwPIttw1gvWeZtw+TfE6j+7Ei3OGLpUQU0fih1jKRws7Z7H3sZcou+gk0tcTIzH3JREYdIo9mIhg9llLjrWueOuWA/0LVO6EEdb3AWptukfY++REJC3t+sMvIO0HFG3zXztbxN8TivLTLazb3hKzMpx3hgI8SoUniSVoH8P2sfL3BIqLyOZviizLv/KWSbFLZslXqXvpk8WJcOIpsxRixIVHbEzz7Ig3mM+i1inm6amtwBuOeFDe+YA5QPEpHuCgjsuCdo+KcWu+dUIRSfaxPPLYRLbIfmrLLItRV7sg5O3qJVp71TLsw7Dfa0kEdSz0BArPaCmLowzWAxYLnEoNoZgAXgywNV/J/o4Ij/o9Uk3mXRj3AXgSPYGaThoO4dux1UiuXNUfzK9+SR3a+Z4cyVYdwt8SrIzoN8ESQyOU4yv4vwBLFnzfgsbyH0DMcbA0QjqTSsOHLfEhRdOllxSe3FgdTatBilW1prtMSMfuR/kXYiUzsKi2dZO97vYmeGk7ug3IsL63uwqFs83TFhxqFDXaoTfRTo38VsTBHYYLN412cVfazVzUQcMQiO/HnhRP28HbLIo3Y5M9HzyOGlLK48Xt+19ioFqU67uKD+KY/XE="
+  - provider: releases
+    skip_cleanup: true
+    on:
+      tags: true
+      condition: "$TRAVIS_RUST_VERSION = stable"
+      branch: master
+    file:
+      - target/release/hero-studio-*
+    api_key:
+      secure: "qPh3NPSSEXjeXoWp6UqFH4RzUOgCUMH2gQHTwh+mOzCWO/PW5L0KbrRznNtGpqKbiUAiZ6FLNp/4w8ThbYh1uom9SBD23WXG92B/8O4bBumt0KPMvRftkMy5zcjHl4ZCEs8ob644pHmJ7okp0Z88LKWMgtr3Uxd1ubrpBFJrN4Q2a9Sl1NOax0qT0k9xhvmi6ANDDnLXUS40zaZowXYZMGjzY71kCt4j+jJYsWnTbZgm4Q1C5ZEEfP3wnbizYeqeF33xup/LNxm0CQStOrhdEMjGt4v8nap6Dh1suMED1PQfQzOnS+J9Sb4B24exsDlP64kYLPdmDWl5ynwqMQCGIdXvp+9tDJwaob3wp8HD9vsoRf2AbLGHyQs3SnxsbL4svjEfj65LmuEi5kEg3p68kleadE+xITrql4HmIo4oAGMRJ+CxCASk8k1Mw2akX9jCb2/AD3VX5ElmlTPoGvYsCtWxgebcm/vhGwRxiMnDyva7bYW8osjPfqYYfe7fC9s2nrzK5ylM0aad93cLWl0IQHDm2sMXuwH9WfGEUx5Zb9BdpXlYfSWKTt3wST9Rts3S7zB+ZLiLTgGqvjWE/sf3LwYgdgxUqzTORWUJ5Cw+qT88NnxvsjmJkOqMJBrDb+JQPixbZO8Q498EjlkGgtG3+b8BSIi7/SzHMtioJuGtsGo="
