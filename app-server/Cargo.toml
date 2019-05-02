@@ -23,3 +23,6 @@ portaudio = "^0.7"
 version = "0.22.2"
 default-features = false
 features = ["sync-ssl"]
+
+[target.'cfg(osx)'.dependencies]
+coremidi = "*"

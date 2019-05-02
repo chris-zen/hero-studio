@@ -1,15 +1,19 @@
 language: rust
 rust:
-- stable
-- beta
-- nightly
+  - stable
+  - nightly
 matrix:
   allow_failures:
-  - rust: nightly
+    - rust: nightly
   fast_finish: true
 os:
-- linux
-- osx
+  - linux
+  - osx
+addons:
+  homebrew:
+    packages:
+      - portaudio
+      - portmidi
 before_deploy:
   - mv target/release/hero-studio "target/release/hero-studio-$TRAVIS_TAG-$TRAVIS_OS_NAME"
 deploy:
