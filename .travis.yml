@@ -1,4 +1,8 @@
 language: rust
+env:
+  global:
+    - PROJECT_NAME: hero-studio
+    - RUST_BACKTRACE: full
 rust:
   - stable
   - nightly
@@ -10,12 +14,16 @@ os:
   - linux
   - osx
 addons:
+  apt:
+    packages:
+      - libportaudio2
+      - libportmidi0
   homebrew:
     packages:
       - portaudio
       - portmidi
 before_deploy:
-  - mv target/release/hero-studio "target/release/hero-studio-$TRAVIS_TAG-$TRAVIS_OS_NAME"
+  - mv target/release/$PROJECT_NAME "target/release/$PROJECT_NAME-$TRAVIS_TAG-$TRAVIS_OS_NAME"
 deploy:
   - provider: releases
     skip_cleanup: true
@@ -24,7 +32,7 @@ deploy:
       condition: "$TRAVIS_RUST_VERSION = stable"
       branch: master
     file:
-      - target/release/hero-studio-*
+      - target/release/$PROJECT_NAME-*
     api_key:
       secure: "qPh3NPSSEXjeXoWp6UqFH4RzUOgCUMH2gQHTwh+mOzCWO/PW5L0KbrRznNtGpqKbiUAiZ6FLNp/4w8ThbYh1uom9SBD23WXG92B/8O4bBumt0KPMvRftkMy5zcjHl4ZCEs8ob644pHmJ7okp0Z88LKWMgtr3Uxd1ubrpBFJrN4Q2a9Sl1NOax0qT0k9xhvmi6ANDDnLXUS40zaZowXYZMGjzY71kCt4j+jJYsWnTbZgm4Q1C5ZEEfP3wnbizYeqeF33xup/LNxm0CQStOrhdEMjGt4v8nap6Dh1suMED1PQfQzOnS+J9Sb4B24exsDlP64kYLPdmDWl5ynwqMQCGIdXvp+9tDJwaob3wp8HD9vsoRf2AbLGHyQs3SnxsbL4svjEfj65LmuEi5kEg3p68kleadE+xITrql4HmIo4oAGMRJ+CxCASk8k1Mw2akX9jCb2/AD3VX5ElmlTPoGvYsCtWxgebcm/vhGwRxiMnDyva7bYW8osjPfqYYfe7fC9s2nrzK5ylM0aad93cLWl0IQHDm2sMXuwH9WfGEUx5Zb9BdpXlYfSWKTt3wST9Rts3S7zB+ZLiLTgGqvjWE/sf3LwYgdgxUqzTORWUJ5Cw+qT88NnxvsjmJkOqMJBrDb+JQPixbZO8Q498EjlkGgtG3+b8BSIi7/SzHMtioJuGtsGo="
 
