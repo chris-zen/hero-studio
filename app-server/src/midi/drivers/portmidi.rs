@@ -1,19 +1,14 @@
 // use log::{debug};
 
-use std::collections::HashSet;
-use std::iter::FromIterator;
 use std::rc::Rc;
-use std::sync::{Arc, RwLock};
 
 use portmidi::{DeviceInfo, MidiEvent, MidiMessage, OutputPort, PortMidi};
 
-use super::{MidiDestination, MidiDriver, MidiEndpoint, MidiError, MidiResult};
-use hero_studio_core::midi::{
-  bus::{BusNode, BusNodeLock, NodeClass, NodeFeature},
-  encoder::Encoder,
-  messages::Message,
-};
+use hero_studio_core::midi::buffer::Buffer;
+use hero_studio_core::midi::{encoder::Encoder, messages::Message};
 use hero_studio_core::time::ClockTime;
+
+use super::{MidiDestination, MidiDriver, MidiEndpoint, MidiError, MidiOutput, MidiResult};
 
 pub const ID: &'static str = "PortMIDI";
 
@@ -61,11 +56,9 @@ impl MidiDriver for PortMidiDriver {
           .filter(|device| device.is_output())
           .collect::<Vec<DeviceInfo>>()
           .into_iter()
-          .enumerate()
-          .map(|(index, device)| {
+          .map(|device| {
             Box::new(PortMidiDestination {
               name: device.name().clone(),
-              default: index == 0,
               context: Rc::clone(&self.context),
               device: device.clone(),
             }) as Box<MidiDestination>
@@ -81,7 +74,6 @@ impl MidiDriver for PortMidiDriver {
 
 pub struct PortMidiDestination {
   name: String,
-  default: bool,
   context: Rc<PortMidi>,
   device: DeviceInfo,
 }
@@ -99,7 +91,7 @@ impl MidiEndpoint for PortMidiDestination {
 }
 
 impl MidiDestination for PortMidiDestination {
-  fn open(&self) -> MidiResult<BusNodeLock> {
+  fn open(&self) -> MidiResult<Box<dyn MidiOutput>> {
     self
       .context
       .output_port(self.device.clone(), MIDI_BUF_LEN)
@@ -107,25 +99,22 @@ impl MidiDestination for PortMidiDestination {
         cause: format!("Device={:?}, Error={:?}", self.name, err),
       })
       .map(|port| {
-        let features = if self.default {
-          HashSet::from_iter(std::iter::once(NodeFeature::Default))
-        } else {
-          HashSet::new()
-        };
-        Arc::new(RwLock::new(OutputBusNode {
-          name: self.name.clone(),
-          features,
+        Box::new(PortMidiOutput::new(
+          self.name.clone(),
+          self.context.clone(),
           port,
-        })) as BusNodeLock
+        )) as Box<MidiOutput>
       })
   }
 }
 
-struct OutputBusNode {
+const MESSAGE_BUFFER_CAPACITY: usize = 8;
+
+struct PortMidiOutput {
   name: String,
-  features: HashSet<NodeFeature>,
-  // FIXME include an Rc<PortMidi> to keep it alive while there is an OutputBusNode alive
+  context: Rc<PortMidi>,
   port: OutputPort,
+  message_buffer: [u8; MESSAGE_BUFFER_CAPACITY],
 }
 
 // impl Drop for OutputBusNode {
@@ -134,47 +123,48 @@ struct OutputBusNode {
 //   }
 // }
 
-impl BusNode for OutputBusNode {
+impl PortMidiOutput {
+  fn new(name: String, context: Rc<PortMidi>, port: OutputPort) -> PortMidiOutput {
+    PortMidiOutput {
+      name,
+      context,
+      port,
+      message_buffer: [0; MESSAGE_BUFFER_CAPACITY],
+    }
+  }
+
   fn name(&self) -> &str {
     self.name.as_str()
-  }
-
-  fn class(&self) -> &NodeClass {
-    &NodeClass::Destination
-  }
-
-  fn features(&self) -> &HashSet<NodeFeature> {
-    &self.features
   }
 
   fn send_message(&mut self, time: ClockTime, msg: &Message) {
     // trace!(">>> {:?} {:?}", time, msg);
     let timestamp = (time.to_nanos() / 1000) as u32;
     let data_size = Encoder::data_size(msg);
-    let mut data = Vec::with_capacity(data_size);
-    unsafe { data.set_len(data_size) };
-    let slice = data.as_mut_slice();
-    Encoder::encode(msg, slice);
+
+    Encoder::encode(msg, &mut self.message_buffer);
+
     let message = match data_size {
       1 => MidiMessage {
-        status: slice[0],
+        status: self.message_buffer[0],
         data1: 0,
         data2: 0,
       },
       2 => MidiMessage {
-        status: slice[0],
-        data1: slice[1],
+        status: self.message_buffer[0],
+        data1: self.message_buffer[1],
         data2: 0,
       },
       3 => MidiMessage {
-        status: slice[0],
-        data1: slice[1],
-        data2: slice[2],
+        status: self.message_buffer[0],
+        data1: self.message_buffer[1],
+        data2: self.message_buffer[2],
       },
       _ => unreachable!(),
     };
+
     let event = MidiEvent { message, timestamp };
-    self.port.write_event(event).unwrap_or(());
+    drop(self.port.write_event(event));
   }
 
   // fn send_sysex_message(&mut self, time: ClockTime, msg: &[U7]) {
@@ -190,4 +180,12 @@ impl BusNode for OutputBusNode {
   //     .write_sysex(timestamp, data.as_slice())
   //     .unwrap_or(());
   // }
+}
+
+impl MidiOutput for PortMidiOutput {
+  fn send(&mut self, base_time: ClockTime, buffer: &Buffer) {
+    for event in buffer.iter() {
+      self.send_message(base_time + event.timestamp, &event.message)
+    }
+  }
 }

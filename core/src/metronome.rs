@@ -1,9 +1,9 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use crate::config::{Metronome as MetronomeConfig, MetronomeNote};
+use crate::config::{Metronome as MetronomeConfig, MetronomeNote, MidiPort};
 use crate::midi;
-use crate::midi::bus::BusAddress;
+use crate::midi::buffer::Endpoint;
 use crate::time::{
   ticks::TICKS_RESOLUTION, BarsTime, ClockTime, SampleRate, Signature, Tempo, TicksTime,
 };
@@ -11,9 +11,8 @@ use crate::transport::{Segment, Transport};
 
 pub struct Metronome {
   config: MetronomeConfig,
-
   enabled: bool,
-
+  endpoint: Endpoint,
   bar_duration: TicksTime,
   beat_duration: TicksTime,
 }
@@ -21,12 +20,13 @@ pub struct Metronome {
 impl Metronome {
   pub fn new(config: MetronomeConfig, signature: Signature) -> Metronome {
     let enabled = config.enabled;
-
+    let endpoint = Self::endpoint_from_midi_port(&config.port);
     let (bar_duration, beat_duration) = Self::bar_and_beat_duration(signature);
 
     Metronome {
       config,
       enabled,
+      endpoint,
       bar_duration,
       beat_duration,
     }
@@ -38,6 +38,10 @@ impl Metronome {
 
   pub fn is_enabled(&self) -> bool {
     self.enabled
+  }
+
+  pub fn endpoint(&self) -> Endpoint {
+    self.endpoint
   }
 
   pub fn process_segment(&mut self, segment: &Segment, buffer: &mut midi::Buffer) {
@@ -105,5 +109,15 @@ impl Metronome {
 
   fn ceil_ticks(start: TicksTime, module: TicksTime) -> TicksTime {
     ((start + module - TicksTime::new(1)) / module) * module
+  }
+
+  fn endpoint_from_midi_port(port: &MidiPort) -> Endpoint {
+    // TODO Select the endpoint from the configuration when update events are received
+    match port {
+      MidiPort::None => Endpoint::None,
+      MidiPort::SystemDefault => Endpoint::Default,
+      MidiPort::All => Endpoint::All,
+      MidiPort::ByName(_name) => Endpoint::None, // TODO
+    }
   }
 }

@@ -1,17 +1,12 @@
-use std::collections::HashSet;
-use std::iter::FromIterator;
 use std::rc::Rc;
-use std::sync::{Arc, RwLock};
 
 use coremidi::{Client, Destination, Destinations, OutputPort, PacketBuffer};
 
-use super::{MidiDestination, MidiDriver, MidiEndpoint, MidiError, MidiResult};
-use hero_studio_core::midi::{
-  bus::{BusNode, BusNodeLock, NodeClass, NodeFeature},
-  encoder::Encoder,
-  messages::Message,
-};
+use hero_studio_core::midi::buffer::Buffer;
+use hero_studio_core::midi::encoder::Encoder;
 use hero_studio_core::time::ClockTime;
+
+use super::{MidiDestination, MidiDriver, MidiEndpoint, MidiError, MidiOutput, MidiResult};
 
 pub const ID: &'static str = "CoreMIDI";
 
@@ -53,7 +48,6 @@ impl MidiDriver for CoreMidi {
           .unwrap_or_else(|| format!("destination-{}", index));
         Box::new(CoreMidiDestination {
           name,
-          default: index == 0,
           client: Rc::clone(&self.client),
           destination: Rc::new(destination),
         }) as Box<MidiDestination>
@@ -68,7 +62,6 @@ impl MidiDriver for CoreMidi {
 
 pub struct CoreMidiDestination {
   name: String,
-  default: bool,
   client: Rc<Client>,
   destination: Rc<Destination>,
 }
@@ -80,7 +73,7 @@ impl MidiEndpoint for CoreMidiDestination {
 }
 
 impl MidiDestination for CoreMidiDestination {
-  fn open(&self) -> MidiResult<BusNodeLock> {
+  fn open(&self) -> MidiResult<Box<dyn MidiOutput>> {
     self
       .client
       .output_port(self.name.as_str())
@@ -88,52 +81,76 @@ impl MidiDestination for CoreMidiDestination {
         cause: format!("Destination={:?}, OSStatus={:?}", self.name, status),
       })
       .map(|port| {
-        let features = if self.default {
-          HashSet::from_iter(std::iter::once(NodeFeature::Default))
-        } else {
-          HashSet::new()
-        };
-        Arc::new(RwLock::new(OutputBusNode {
-          name: self.name.clone(),
-          features,
-          destination: self.destination.clone(),
+        Box::new(CoreMidiOutput::new(
+          self.name.clone(),
+          self.client.clone(),
+          self.destination.clone(),
           port,
-        })) as Arc<RwLock<BusNode>>
+        )) as Box<MidiOutput>
       })
   }
 }
 
-struct OutputBusNode {
+const MESSAGE_CAPACITY: usize = 8;
+const PACKET_BUFFER_CAPACITY: usize = 16 * 1024;
+
+struct CoreMidiOutput {
   name: String,
-  features: HashSet<NodeFeature>,
+  client: Rc<Client>,
   destination: Rc<Destination>,
-  // FIXME add the Rc<Client>
   port: OutputPort,
+  message_buffer: [u8; MESSAGE_CAPACITY],
+  packet_buffer: PacketBuffer,
 }
 
-impl BusNode for OutputBusNode {
+impl CoreMidiOutput {
+  fn new(
+    name: String,
+    client: Rc<Client>,
+    destination: Rc<Destination>,
+    port: OutputPort,
+  ) -> CoreMidiOutput {
+    let message_buffer = [0; MESSAGE_CAPACITY];
+    let packet_buffer = PacketBuffer::with_capacity(PACKET_BUFFER_CAPACITY);
+
+    CoreMidiOutput {
+      name,
+      client,
+      destination,
+      port,
+      message_buffer,
+      packet_buffer,
+    }
+  }
+
   fn name(&self) -> &str {
     self.name.as_str()
   }
+}
 
-  fn class(&self) -> &NodeClass {
-    &NodeClass::Destination
-  }
+impl MidiOutput for CoreMidiOutput {
+  fn send(&mut self, base_time: ClockTime, buffer: &Buffer) {
+    self.packet_buffer.clear();
+    let mut packet_buffer_size = 0;
 
-  fn features(&self) -> &HashSet<NodeFeature> {
-    &self.features
-  }
+    for event in buffer.iter() {
+      let timestamp = base_time + event.timestamp;
+      let data_size = Encoder::data_size(&event.message);
+      if packet_buffer_size + data_size >= PACKET_BUFFER_CAPACITY {
+        drop(self.port.send(&self.destination, &self.packet_buffer));
+        self.packet_buffer.clear();
+        packet_buffer_size = 0;
+      }
+      let host_time = unsafe { external::AudioConvertNanosToHostTime(timestamp.to_nanos()) };
 
-  fn send_message(&mut self, time: ClockTime, msg: &Message) {
-    // println!(">>> {:?} {:?}", time, msg);
-    let timestamp = unsafe { external::AudioConvertNanosToHostTime(time.to_nanos()) };
-    let data_size = Encoder::data_size(msg);
-    let mut data = Vec::with_capacity(data_size);
-    unsafe { data.set_len(data_size) };
-    let slice = data.as_mut_slice();
-    Encoder::encode(msg, slice);
-    let buffer = PacketBuffer::new(timestamp, slice);
-    self.port.send(&self.destination, &buffer).unwrap_or(())
+      Encoder::encode(&event.message, &mut self.message_buffer);
+
+      self
+        .packet_buffer
+        .push_data(host_time, &self.message_buffer[0..data_size]);
+      packet_buffer_size += data_size;
+    }
+    drop(self.port.send(&self.destination, &self.packet_buffer));
   }
 }
 

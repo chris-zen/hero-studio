@@ -17,7 +17,8 @@ use std::collections::HashMap;
 
 use failure::Fail;
 
-use hero_studio_core::midi::bus::BusNodeLock;
+use hero_studio_core::midi::buffer::Buffer;
+use hero_studio_core::time::ClockTime;
 
 #[derive(Debug, Fail)]
 pub enum MidiError {
@@ -45,13 +46,6 @@ impl MidiDrivers {
   pub fn new() -> MidiDrivers {
     let mut drivers: HashMap<String, MidiDriverFactory> = HashMap::new();
 
-    {
-      let portmidi_factory = Box::new(|_app_name: String| {
-        portmidi::PortMidiDriver::new().map(|driver| Box::new(driver) as Box<MidiDriver>)
-      });
-      drivers.insert(portmidi::ID.to_string(), portmidi_factory);
-    }
-
     if cfg!(all(target_os = "macos")) {
       let coremidi_factory = Box::new(|app_name: String| {
         coremidi::CoreMidi::new(app_name).map(|driver| Box::new(driver) as Box<MidiDriver>)
@@ -59,11 +53,18 @@ impl MidiDrivers {
       drivers.insert(coremidi::ID.to_string(), coremidi_factory);
     }
 
+    {
+      let portmidi_factory = Box::new(|_app_name: String| {
+        portmidi::PortMidiDriver::new().map(|driver| Box::new(driver) as Box<MidiDriver>)
+      });
+      drivers.insert(portmidi::ID.to_string(), portmidi_factory);
+    }
+
     MidiDrivers { drivers }
   }
 
   pub fn drivers(&self) -> Vec<&String> {
-    self.drivers.keys().collect() // .map(|id| *id)
+    self.drivers.keys().collect()
   }
 
   pub fn driver<A, B>(&self, id: A, app_name: B) -> MidiResult<Box<dyn MidiDriver>>
@@ -101,5 +102,9 @@ pub trait MidiEndpoint {
 }
 
 pub trait MidiDestination: MidiEndpoint {
-  fn open(&self) -> MidiResult<BusNodeLock>;
+  fn open(&self) -> MidiResult<Box<dyn MidiOutput>>;
+}
+
+pub trait MidiOutput {
+  fn send(&mut self, base_time: ClockTime, buffer: &Buffer);
 }

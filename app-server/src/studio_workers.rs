@@ -37,7 +37,7 @@ pub enum Protocol {
   },
 
   MidiOutputInitialised,
-  MidiReleased(Box<midi::IoVec>),
+  MidiReleased(Box<midi::BufferIoVec>),
 }
 
 struct MasterThread {
@@ -49,7 +49,7 @@ struct MasterThread {
   num_output_channels: usize,
   audio_buffer_pool: Pool<audio::Buffer>,
   midi_buffer_pool: Pool<midi::Buffer>,
-  midi_io_vec_pool: Pool<midi::IoVec>,
+  midi_io_vec_pool: Pool<midi::BufferIoVec>,
   _rta_priority: Option<RealTimeAudioPriority>,
 }
 
@@ -80,7 +80,7 @@ impl MasterThread {
       app_midi_config.buffer_pool.item_capacity,
     );
 
-    let midi_io_vec_pool = midi::new_io_vec_pool(
+    let midi_io_vec_pool = midi::new_buffer_io_vec_pool(
       app_midi_config.io_vec_pool.pool_capacity,
       app_midi_config.io_vec_pool.item_capacity,
     );

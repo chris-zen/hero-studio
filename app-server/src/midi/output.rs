@@ -1,17 +1,20 @@
+use std::collections::HashSet;
 use std::thread;
 use std::thread::JoinHandle;
 
 use failure::Fail;
-use log::{debug, info, warn};
+
+use log::{debug, error, info, warn};
 
 use crossbeam_channel::{Receiver, Sender};
-
-use hero_studio_core::config::{Audio as AudioConfig, Midi as MidiConfig};
 use hero_studio_core::midi;
-use hero_studio_core::midi::bus::{BusAddress, MidiBus};
 use hero_studio_core::time::ClockTime;
 
-use crate::midi::drivers::{MidiDriver, MidiDrivers};
+use hero_studio_core::config::{Audio as AudioConfig, Midi as MidiConfig};
+use hero_studio_core::midi::buffer::Endpoint;
+
+use crate::midi::drivers::{MidiDriver, MidiDrivers, MidiOutput as MidiOutputPort};
+use crate::midi::endpoints::{Endpoints, EndpointId};
 use crate::realtime_thread::RealTimeAudioPriority;
 use crate::studio_workers::Protocol as StudioProtocol;
 
@@ -29,13 +32,13 @@ pub enum Protocol {
 
   Output {
     time: ClockTime,
-    io_vec: Box<midi::IoVec>,
+    buffer_io_vec: Box<midi::BufferIoVec>,
   },
 }
 
 pub struct MidiOutputThread {
-  driver: Box<dyn MidiDriver>,
-  midi_bus: MidiBus,
+  _driver: Box<dyn MidiDriver>,
+  endpoints: Endpoints<MidiOutputPort>,
   studio_tx: Sender<StudioProtocol>,
   _rta_priority: Option<RealTimeAudioPriority>,
 }
@@ -46,17 +49,15 @@ impl MidiOutputThread {
     audio_config: &AudioConfig,
     studio_tx: Sender<StudioProtocol>,
   ) -> MidiOutputThread {
-    let (driver, midi_bus) = Self::init_destinations(config);
+    let (driver, endpoints) = Self::init_endpoints(config);
 
     drop(studio_tx.send(StudioProtocol::MidiOutputInitialised));
 
-    let _rta_priority = None; //Self::promote_to_real_time(audio_config);
-
-    // TODO send the list of destinations to the workers
+    let _rta_priority = Self::promote_to_real_time(audio_config);
 
     MidiOutputThread {
-      driver,
-      midi_bus,
+      _driver: driver,
+      endpoints,
       studio_tx,
       _rta_priority,
     }
@@ -72,22 +73,38 @@ impl MidiOutputThread {
           break;
         }
 
-        Protocol::Output { io_vec, time } => {
-          self.send_output(&io_vec, time);
-          drop(self.studio_tx.send(StudioProtocol::MidiReleased(io_vec)));
+        Protocol::Output {
+          time,
+          buffer_io_vec,
+        } => {
+          self.send_buffer_io_vec(time, &buffer_io_vec);
+          drop(
+            self
+              .studio_tx
+              .send(StudioProtocol::MidiReleased(buffer_io_vec)),
+          );
         }
       }
     }
   }
 
-  fn send_output(&mut self, midi_output: &midi::IoVec, base_time: ClockTime) {
-    for output in midi_output.iter() {
-      if let Some(bus_node_lock) = self.midi_bus.get_node_mut(&output.address) {
-        if let Some(boxed_buffer) = &output.buffer {
-          if let Ok(mut bus_node) = bus_node_lock.write() {
-            for event in boxed_buffer.iter() {
-              let timestamp = base_time + event.timestamp;
-              bus_node.send_message(timestamp, &event.message);
+  fn send_buffer_io_vec(&mut self, base_time: ClockTime, buffer_io_vec: &midi::BufferIoVec) {
+    for buffer_io in buffer_io_vec.iter() {
+      if let Some(buffer) = &buffer_io.buffer {
+        match buffer_io.endpoint {
+          Endpoint::None => {}
+          Endpoint::Default => {
+            if let Some(endpoint) = self.endpoints.get_mut(0) {
+              endpoint.send(base_time, buffer)
+            }
+          }
+          Endpoint::All => self
+            .endpoints
+            .iter_mut()
+            .for_each(|endpoint| endpoint.send(base_time, buffer)),
+          Endpoint::Id(id) => {
+            if let Some(endpoint) = self.endpoints.get_mut(id) {
+              endpoint.send(base_time, buffer)
             }
           }
         }
@@ -95,7 +112,30 @@ impl MidiOutputThread {
     }
   }
 
-  pub fn init_destinations(config: &MidiConfig) -> (Box<dyn MidiDriver>, MidiBus) {
+  fn update_endpoints(_config: &MidiConfig, driver: &MidiDriver, endpoints: &mut Endpoints<MidiOutputPort>) {
+    let mut unvisited: HashSet<EndpointId> = endpoints.ids().map(|id| *id).collect();
+
+    // TODO send the updates to the studio worker
+
+    debug!("Updating endpoints:");
+    for destination in driver.destinations() {
+      let name = destination.name();
+      if let Some(id) = endpoints.get_id_from_name(&name) {
+        unvisited.remove(&id);
+        debug!("(=) {} [{}]", name, id);
+      } else {
+        if let Ok(endpoint) = destination.open() {
+          let id = endpoints.add(name.clone(), endpoint);
+          debug!("(+) {} [{}]", name, id);
+        } else {
+          error!("Error opening MIDI output port: {}", name);
+        }
+      }
+    }
+    endpoints.remove(unvisited, |name, id| debug!("(-) {} [{}]", name, id));
+  }
+
+  fn init_endpoints(config: &MidiConfig) -> (Box<dyn MidiDriver>, Endpoints<MidiOutputPort>) {
     info!("Initialising MIDI output ...");
 
     let drivers = MidiDrivers::new();
@@ -103,24 +143,15 @@ impl MidiOutputThread {
     let driver = drivers
       .driver(config.driver_id.clone(), app_name)
       .or_else(|_| drivers.default(app_name))
-      .unwrap(); // FIXME mybe we need a thread supervisor ?
+      .unwrap(); // FIXME maybe we need a thread supervisor ?
 
-    debug!("MIDI Driver: {:?}", driver.id());
+    debug!("MIDI Driver: {}", driver.id());
 
-    let mut midi_bus = MidiBus::new();
-    debug!("Destinations:");
-    for destination in driver.destinations() {
-      debug!("=> {:?}", destination.name());
-      if let Ok(bus_node) = destination.open() {
-        debug!(
-          "   Adding MIDI destination to the bus: {}",
-          destination.name()
-        );
-        midi_bus.add_node(&BusAddress::new(), bus_node);
-      }
-    }
+    let mut endpoints = Endpoints::new();
 
-    (driver, midi_bus)
+    Self::update_endpoints(config, driver.as_ref(), &mut endpoints);
+
+    (driver, endpoints)
   }
 
   fn promote_to_real_time(audio_config: &AudioConfig) -> Option<RealTimeAudioPriority> {
