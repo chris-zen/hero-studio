@@ -1,3 +1,7 @@
+// FIXME Remove when the code gets more stable
+#![allow(unused_imports)]
+#![allow(dead_code)]
+
 use log::{debug, info, trace};
 
 use std::collections::HashMap;

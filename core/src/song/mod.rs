@@ -1,7 +1,3 @@
-use std::cell::{RefCell, RefMut};
-use std::rc::Rc;
-use std::sync::{Arc, RwLock};
-
 pub mod clips;
 pub mod io;
 pub mod source;
@@ -9,7 +5,6 @@ pub mod track;
 
 use crate::config::Config;
 use crate::metronome::Metronome;
-use crate::midi::bus::MidiBusLock;
 use crate::time::{BarsTime, SampleRate, Signature, TicksTime};
 use crate::transport::{Segment, Transport};
 

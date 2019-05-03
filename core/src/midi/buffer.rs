@@ -1,4 +1,3 @@
-use super::bus::BusAddress;
 use crate::midi::messages::Message;
 use crate::pool::Pool;
 use crate::time::ClockTime;
@@ -43,15 +42,23 @@ pub fn new_buffer_pool(pool_capacity: usize, buffer_capacity: usize) -> Pool<Buf
   Pool::new(pool_capacity, allocator, reset)
 }
 
-pub struct Io {
-  pub address: BusAddress,
+#[derive(Clone, Copy)]
+pub enum Endpoint {
+  None,
+  Default,
+  All,
+  Id(usize),
+}
+
+pub struct BufferIo {
+  pub endpoint: Endpoint,
   pub buffer: Option<Box<Buffer>>,
 }
 
-pub type IoVec = Vec<Io>;
+pub type BufferIoVec = Vec<BufferIo>;
 
-pub fn new_io_vec_pool(pool_capacity: usize, vec_capacity: usize) -> Pool<IoVec> {
+pub fn new_buffer_io_vec_pool(pool_capacity: usize, vec_capacity: usize) -> Pool<BufferIoVec> {
   let allocator = Box::new(move || Box::new(Vec::with_capacity(vec_capacity)));
-  let reset = Box::new(|vec: &mut IoVec| vec.clear());
+  let reset = Box::new(|vec: &mut BufferIoVec| vec.clear());
   Pool::new(pool_capacity, allocator, reset)
 }

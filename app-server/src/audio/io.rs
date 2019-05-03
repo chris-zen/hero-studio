@@ -14,7 +14,7 @@ pub enum Protocol {
 
   Next {
     audio_input: Box<audio::Buffer>, // pre-allocated buffer for the captured audio input
-    midi_output: Box<midi::IoVec>,   // midi to send into the MIDI output thread
+    midi_output: Box<midi::BufferIoVec>, // midi to send into the MIDI output thread
     audio_output: Box<audio::Buffer>, // audio to send into the output stream
   },
 }
@@ -80,7 +80,7 @@ impl AudioIo {
 
           drop(self.midi_out_tx.send(MidiOutputProtocol::Output {
             time: output_time,
-            io_vec: midi_output,
+            buffer_io_vec: midi_output,
           }));
 
           AudioIoResult::Continue
