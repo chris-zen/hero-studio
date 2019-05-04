@@ -1,10 +1,10 @@
 mod portmidi;
 pub use self::portmidi::ID as PORT_MIDI_ID;
 
-#[cfg(all(target_os = "macos"))]
+#[cfg(target_os = "macos")]
 mod coremidi;
 
-#[cfg(all(target_os = "macos"))]
+#[cfg(target_os = "macos")]
 pub use self::coremidi::ID as CORE_MIDI_ID;
 
 use std::collections::HashMap;
@@ -65,15 +65,21 @@ impl Midi {
       drivers.insert(portmidi::ID, portmidi_factory);
     }
 
-    if cfg!(all(target_os = "macos")) {
-      let driver_factory = Box::new(|app_name: String| {
-        coremidi::CoreMidi::new(app_name).map(|driver| Box::new(driver) as Box<MidiDriver>)
-      });
-      drivers.insert(coremidi::ID, driver_factory);
-    }
+    Self::add_platform_drivers(&mut drivers);
 
     Midi { drivers }
   }
+
+  #[cfg(target_os = "macos")]
+  fn add_platform_drivers(drivers: &mut HashMap<MidiDriverId, MidiDriverFactory>) {
+    let driver_factory = Box::new(|app_name: String| {
+      coremidi::CoreMidi::new(app_name).map(|driver| Box::new(driver) as Box<MidiDriver>)
+    });
+    drivers.insert(coremidi::ID, driver_factory);
+  }
+
+  #[cfg(not(target_os = "macos"))]
+  fn add_platform_drivers(drivers: &mut HashMap<MidiDriverId, MidiDriverFactory>) {}
 
   pub fn drivers(&self) -> Vec<MidiDriverId> {
     self.drivers.keys().map(|id| *id).collect()
