@@ -7,6 +7,12 @@ mod coremidi;
 #[cfg(target_os = "macos")]
 pub use self::coremidi::ID as CORE_MIDI_ID;
 
+#[cfg(not(target_os = "macos"))]
+pub const DEFAULT_ID: MidiDriverId = PORT_MIDI_ID;
+
+#[cfg(target_os = "macos")]
+pub const DEFAULT_ID: MidiDriverId = CORE_MIDI_ID;
+
 use std::collections::HashMap;
 
 use failure::Fail;
