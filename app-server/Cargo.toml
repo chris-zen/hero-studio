@@ -15,7 +15,6 @@ failure_derive = "*"
 
 crossbeam-channel = "0.3.6"
 
-coremidi = { git = "https://github.com/chris-zen/coremidi.git", branch = "packet-buffer-with-capacity" }
 portmidi = "^0.2"
 portaudio = "^0.7"
 
@@ -23,3 +22,6 @@ portaudio = "^0.7"
 version = "0.22.2"
 default-features = false
 features = ["sync-ssl"]
+
+[target.'cfg(target_os = "macos")'.dependencies]
+coremidi = "0.3.1"
