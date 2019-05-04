@@ -13,7 +13,7 @@ use hero_studio_core::midi::bus::{BusAddress, MidiBus};
 use hero_studio_core::{config::Config, config::Audio as AudioConfig, studio::Studio, time::BarsTime};
 
 mod midi;
-use crate::midi::{Midi, MidiDriver, MidiError, PORT_MIDI_ID, CORE_MIDI_ID};
+use crate::midi::{Midi, MidiDriver, MidiError, DEFAULT_ID};
 
 mod audio;
 use crate::audio::{audio_close, audio_start};
@@ -121,8 +121,7 @@ fn init_midi_bus(_config: &Config) -> Result<(MidiBus, Box<dyn MidiDriver>), Err
 
   // TODO create a driver from the configuration
   // let midi_driver_id = *midi.drivers().first().unwrap();
-  let midi_driver_id = PORT_MIDI_ID;
-  // let midi_driver_id = CORE_MIDI_ID;
+  let midi_driver_id = DEFAULT_ID;
 
   let midi_driver = midi
     .driver(midi_driver_id, APP_NAME)

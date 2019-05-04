@@ -131,7 +131,7 @@ mod test {
     let signature = Signature::new(4, 4);
     let tempo = Tempo::new(120);
     let ticks = TicksTime::per_minute(signature, tempo);
-    assert_eq!(ticks.0, 460800);
+    assert_eq!(ticks.0, 4608000);
   }
 
   #[test]
