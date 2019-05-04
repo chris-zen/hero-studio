@@ -1,10 +1,10 @@
 mod portmidi;
 pub use self::portmidi::ID as PORT_MIDI_ID;
 
-#[cfg(all(target_os = "macos"))]
+#[cfg(target_os = "macos")]
 mod coremidi;
 
-#[cfg(all(target_os = "macos"))]
+#[cfg(target_os = "macos")]
 pub use self::coremidi::ID as CORE_MIDI_ID;
 
 #[cfg(not(target_os = "macos"))]
@@ -46,21 +46,29 @@ impl MidiDrivers {
   pub fn new() -> MidiDrivers {
     let mut drivers: HashMap<String, MidiDriverFactory> = HashMap::new();
 
-    if cfg!(all(target_os = "macos")) {
-      let coremidi_factory = Box::new(|app_name: String| {
-        coremidi::CoreMidi::new(app_name).map(|driver| Box::new(driver) as Box<MidiDriver>)
-      });
-      drivers.insert(coremidi::ID.to_string(), coremidi_factory);
-    }
+    Self::add_platform_drivers(&mut drivers);
 
-    {
-      let portmidi_factory = Box::new(|_app_name: String| {
-        portmidi::PortMidiDriver::new().map(|driver| Box::new(driver) as Box<MidiDriver>)
-      });
-      drivers.insert(portmidi::ID.to_string(), portmidi_factory);
-    }
+    Self::add_common_drivers(&mut drivers);
 
     MidiDrivers { drivers }
+  }
+
+  #[cfg(target_os = "macos")]
+  fn add_platform_drivers(drivers: &mut HashMap<String, MidiDriverFactory>) {
+    let coremidi_factory = Box::new(|app_name: String| {
+      coremidi::CoreMidi::new(app_name).map(|driver| Box::new(driver) as Box<MidiDriver>)
+    });
+    drivers.insert(coremidi::ID.to_string(), coremidi_factory);
+  }
+
+  #[cfg(not(target_os = "macos"))]
+  fn add_platform_drivers(drivers: &mut HashMap<String, MidiDriverFactory>) {}
+
+  fn add_common_drivers(drivers: &mut HashMap<String, MidiDriverFactory>) {
+    let portmidi_factory = Box::new(|_app_name: String| {
+      portmidi::PortMidiDriver::new().map(|driver| Box::new(driver) as Box<MidiDriver>)
+    });
+    drivers.insert(portmidi::ID.to_string(), portmidi_factory);
   }
 
   pub fn drivers(&self) -> Vec<&String> {
