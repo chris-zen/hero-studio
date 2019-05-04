@@ -110,14 +110,14 @@ impl Studio {
       let out = _audio_output.slice_mut(frames * audio_output_channels);
       fill_with_zero(out);
 
-      for i in 0..frames {
-        let v = i as f32 / frames as f32;
-        let u = i * _audio_input_channels;
-        let j = i * audio_output_channels;
-        for k in 0..audio_output_channels {
-          _audio_output[j + k] = _audio_input[u] + v * 0.20;
-        }
-      }
+//      for i in 0..frames {
+//        let v = i as f32 / frames as f32;
+//        let u = i * _audio_input_channels;
+//        let j = i * audio_output_channels;
+//        for k in 0..audio_output_channels {
+//          _audio_output[j + k] = _audio_input[u] + v * 0.20;
+//        }
+//      }
     } else {
       let out = _audio_output.slice_mut(frames * audio_output_channels);
       fill_with_zero(out);
