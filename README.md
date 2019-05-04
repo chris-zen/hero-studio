@@ -1,3 +1,5 @@
+[![TravisCI build status](https://travis-ci.org/chris-zen/hero-studio.svg)](https://travis-ci.org/chris-zen/hero-studio)
+
 # Hero Studio
 
 This project is an attempt to build a music studio similar to Ableton Live or Bitwig Studio in the long term.
