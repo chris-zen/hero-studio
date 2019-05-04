@@ -70,24 +70,20 @@ mod test {
   #[test]
   pub fn ticks_drift_correction_new() {
     let correction = TicksDriftCorrection::new(Signature::new(6, 13), Tempo::new(130), 44100);
-    assert_eq!(correction.ticks_per_sample, 4.190461073318216);
-    assert_eq!(correction.error_per_sample, -0.000007558578987370399);
+    assert_eq!(correction.ticks_per_sample, 0.47165532879818595);
+    assert_eq!(correction.error_per_sample, 0.10882086167800453);
     assert_eq!(correction.error_accumulated, 0.0);
     assert_eq!(correction.last_correction, 0.0);
   }
 
   #[test]
   pub fn ticks_drift_correction_next() {
-    let mut correction = TicksDriftCorrection::new(Signature::new(4, 4), Tempo::new(60), 44100);
-    let ticks = correction.next(100);
-    assert_eq!(ticks, TicksTime::new(628));
-    let ticks = correction.next(100);
-    assert_eq!(ticks, TicksTime::new(628));
-    let ticks = correction.next(100);
-    assert_eq!(ticks, TicksTime::new(627));
-    let ticks = correction.next(100);
-    assert_eq!(ticks, TicksTime::new(628));
-    let ticks = correction.next(100);
-    assert_eq!(ticks, TicksTime::new(627));
+    let mut correction = TicksDriftCorrection::new(Signature::new(6, 7), Tempo::new(120), 44100);
+    for _ in 0..4 {
+      let ticks = correction.next(1000);
+      assert_eq!(ticks, TicksTime::new(994));  
+    }
+    let ticks = correction.next(1000);
+    assert_eq!(ticks, TicksTime::new(995));
   }
 }
