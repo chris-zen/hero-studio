@@ -20,7 +20,7 @@ addons:
   apt:
     packages:
       - libportaudio2
-      - libportmidi0
+      - libportmidi-dev
   homebrew:
     packages:
       - portaudio
