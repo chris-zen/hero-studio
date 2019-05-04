@@ -24,4 +24,4 @@ default-features = false
 features = ["sync-ssl"]
 
 [target.'cfg(target_os = "macos")'.dependencies]
-coremidi = { git = "https://github.com/chris-zen/coremidi.git", branch = "packet-buffer-with-capacity" }
+coremidi = "0.3.1"
