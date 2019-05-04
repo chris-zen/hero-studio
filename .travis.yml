@@ -1,21 +1,14 @@
 language: rust
-env:
-  global:
-    - PROJECT_NAME: hero-studio
-    - RUST_BACKTRACE: full
+
 rust:
   - stable
+  - beta
   - nightly
-script:
-  - cargo build --verbose --all
-  - cargo test --verbose --all
-matrix:
-  allow_failures:
-    - rust: nightly
-  fast_finish: true
+
 os:
-  - linux
   - osx
+  - linux
+
 addons:
   apt:
     packages:
@@ -25,8 +18,33 @@ addons:
     packages:
       - portaudio
       - portmidi
+
+env:
+  global:
+    - PROJECT_NAME: hero-studio
+    - RUST_BACKTRACE: full
+
+matrix:
+  allow_failures:
+    - rust: nightly
+  fast_finish: true
+
+before_script:
+  - |
+    if [[ "$TRAVIS_RUST_VERSION" == "nightly" ]]; then
+      rustup component add clippy --toolchain=nightly || cargo install --git https://github.com/rust-lang/rust-clippy/ --force clippy
+    else
+      rustup component add clippy
+    fi
+
+script:
+  - cargo clippy
+  - cargo build --all
+  - cargo test --verbose --all
+
 before_deploy:
   - mv target/release/$PROJECT_NAME "target/release/$PROJECT_NAME-$TRAVIS_TAG-$TRAVIS_OS_NAME"
+
 deploy:
   - provider: releases
     skip_cleanup: true
