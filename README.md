@@ -43,7 +43,7 @@ then you should install the binary dependencies and headers for PortAudio and/or
 
 ```sh
 # ubuntu
-sudo apt-get install libportaudio2 libportmidi0
+sudo apt-get install libportaudio2 libportmidi-dev
 ```
 
 ### Installing PortAudio & PortMIDI in MacOS
