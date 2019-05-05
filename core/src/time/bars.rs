@@ -27,11 +27,11 @@ impl BarsTime {
   pub fn from_ticks(ticks_time: TicksTime, signature: Signature) -> BarsTime {
     let num_ticks = u64::from(ticks_time);
     let total_sixteenths = num_ticks / TICKS_RESOLUTION;
-    let num_sixteenths_per_beat = 16 / signature.get_note_value() as u64;
+    let num_sixteenths_per_beat = 16 / u64::from(signature.get_note_value());
     let total_beats = total_sixteenths / num_sixteenths_per_beat;
     BarsTime {
-      bars: (total_beats / signature.get_num_beats() as u64) as u16,
-      beats: (total_beats % signature.get_num_beats() as u64) as u16,
+      bars: (total_beats / u64::from(signature.get_num_beats())) as u16,
+      beats: (total_beats % u64::from(signature.get_num_beats())) as u16,
       sixteenths: (total_sixteenths % num_sixteenths_per_beat) as u16,
       ticks: (num_ticks % TICKS_RESOLUTION) as u16,
     }
@@ -54,14 +54,14 @@ impl BarsTime {
   }
 
   pub fn to_ticks(&self, signature: Signature) -> TicksTime {
-    let num_sixteenths_per_beat = 16 / signature.get_note_value() as u64;
-    let num_ticks_per_beat = num_sixteenths_per_beat * TICKS_RESOLUTION;
-    let num_ticks_per_bar = signature.get_num_beats() as u64 * num_ticks_per_beat;
+    let num_sixteenths_per_beat = 16.0 / f64::from(signature.get_note_value());
+    let num_ticks_per_beat = num_sixteenths_per_beat * TICKS_RESOLUTION as f64;
+    let num_ticks_per_bar = f64::from(signature.get_num_beats()) * num_ticks_per_beat;
     TicksTime::new(
-      self.bars as u64 * num_ticks_per_bar
-        + self.beats as u64 * num_ticks_per_beat
-        + self.sixteenths as u64 * TICKS_RESOLUTION
-        + self.ticks as u64,
+      u64::from(self.bars) * num_ticks_per_bar as u64
+        + u64::from(self.beats) * num_ticks_per_beat as u64
+        + u64::from(self.sixteenths) * TICKS_RESOLUTION
+        + u64::from(self.ticks),
     )
   }
 }
@@ -122,9 +122,9 @@ mod test {
   #[test]
   pub fn to_ticks() {
     let signature = Signature::new(3, 4);
-    let ticks = TicksTime::new(123456789);
+    let ticks = TicksTime::new(123_456_789);
     let time = BarsTime::from_ticks(ticks, signature);
     let ticks = time.to_ticks(signature);
-    assert_eq!(u64::from(ticks), 123456789);
+    assert_eq!(u64::from(ticks), 123_456_789);
   }
 }

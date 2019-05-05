@@ -293,6 +293,7 @@ pub struct Segment {
 }
 
 impl Segment {
+  #[allow(clippy::too_many_arguments)]
   pub fn new(
     sample_rate: SampleRate,
     signature: Signature,

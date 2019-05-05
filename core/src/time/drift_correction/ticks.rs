@@ -14,14 +14,19 @@ impl TicksDriftCorrection {
   pub fn new(signature: Signature, tempo: Tempo, sample_rate: SampleRate) -> TicksDriftCorrection {
     let ticks_per_beat = f64::from(BarsTime::new(0, 1, 0, 0).to_ticks(signature));
     let ticks_per_sample =
-      ticks_per_beat * f64::from(tempo) / (SECONDS_PER_MINUTE * sample_rate as f64);
+      ticks_per_beat * f64::from(tempo) / (SECONDS_PER_MINUTE * f64::from(sample_rate));
     let error_per_second = f64::from(ClockTime::from_seconds(1.0).to_ticks(signature, tempo))
-      - ticks_per_sample * sample_rate as f64;
-    let error_per_sample = error_per_second / sample_rate as f64;
+      - ticks_per_sample * f64::from(sample_rate);
+    let error_per_sample = error_per_second / f64::from(sample_rate);
+    // println!("ticks_per_sample={:?}, ticks_per_sec={:?}, ticks_per_sec_we={:?}, error_per_sec={:?}, error_per_sample={:?}",
+    //   ticks_per_sample,
+    //   f64::from(ClockTime::from_seconds(1.0).to_ticks(signature, tempo)),
+    //   ticks_per_sample * sample_rate as f64,
+    //   error_per_second, error_per_sample);
 
     TicksDriftCorrection {
-      ticks_per_sample: ticks_per_sample,
-      error_per_sample: error_per_sample,
+      ticks_per_sample,
+      error_per_sample,
       error_accumulated: 0.0,
       last_correction: 0.0,
     }
@@ -44,9 +49,9 @@ impl TicksDriftCorrection {
   }
 
   pub fn next(&mut self, samples: u32) -> TicksTime {
-    let samples_ticks = self.ticks_per_sample * samples as f64;
+    let samples_ticks = self.ticks_per_sample * f64::from(samples);
     let samples_error =
-      samples_ticks - samples_ticks.round() + self.error_per_sample * samples as f64;
+      samples_ticks - samples_ticks.round() + self.error_per_sample * f64::from(samples);
     let total_error = self.error_accumulated + samples_error;
     if total_error.abs() >= 1.0 {
       self.last_correction = total_error.round();
@@ -60,7 +65,6 @@ impl TicksDriftCorrection {
   }
 }
 
-
 #[cfg(test)]
 mod test {
 
@@ -70,8 +74,8 @@ mod test {
   #[test]
   pub fn ticks_drift_correction_new() {
     let correction = TicksDriftCorrection::new(Signature::new(6, 13), Tempo::new(130), 44100);
-    assert_eq!(correction.ticks_per_sample, 0.47165532879818595);
-    assert_eq!(correction.error_per_sample, 0.10882086167800453);
+    assert_eq!(correction.ticks_per_sample, 4.190_461_073_318_216);
+    assert_eq!(correction.error_per_sample, -0.000_007_558_578_987_370_399);
     assert_eq!(correction.error_accumulated, 0.0);
     assert_eq!(correction.last_correction, 0.0);
   }
@@ -79,11 +83,11 @@ mod test {
   #[test]
   pub fn ticks_drift_correction_next() {
     let mut correction = TicksDriftCorrection::new(Signature::new(6, 7), Tempo::new(120), 44100);
-    for _ in 0..4 {
+    for _ in 0..3 {
       let ticks = correction.next(1000);
-      assert_eq!(ticks, TicksTime::new(994));  
+      assert_eq!(ticks, TicksTime::new(7183));
     }
     let ticks = correction.next(1000);
-    assert_eq!(ticks, TicksTime::new(995));
+    assert_eq!(ticks, TicksTime::new(7182));
   }
 }

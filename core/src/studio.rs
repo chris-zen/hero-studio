@@ -1,46 +1,51 @@
 use std::fmt;
+use std::ops::{Deref, DerefMut};
 
-use crate::config::{Config, ConfigLock};
-use crate::midi::bus::MidiBusLock;
+use crate::audio;
+use crate::config::{Config, MidiPort};
+use crate::metronome::Metronome;
+use crate::midi;
+use crate::pool::Pool;
 use crate::song::Song;
-use crate::time::ClockTime;
+use crate::time::{BarsTime, ClockTime};
+use crate::transport::{Segment, Transport};
 
-pub type Seconds = f64;
-
-#[derive(Debug, Clone, Copy)]
-pub struct AudioTime {
-  pub current: ClockTime,
-  pub input: ClockTime,
-  pub output: ClockTime,
-}
-
-impl AudioTime {
-  pub fn new(current: Seconds, input: Seconds, output: Seconds) -> AudioTime {
-    AudioTime {
-      current: ClockTime::from_seconds(current),
-      input: ClockTime::from_seconds(input),
-      output: ClockTime::from_seconds(output),
-    }
+fn fill_with_zero(s: &mut [f32]) {
+  for d in s {
+    *d = 0.0;
   }
 }
 
 pub struct Studio {
-  config: ConfigLock,
-  midi_bus: MidiBusLock,
+  config: Config,
+  transport: Transport,
+  metronome: Metronome,
   song: Song,
 }
 
 unsafe impl Send for Studio {}
 
 impl Studio {
-  pub fn new(config: ConfigLock, midi_bus: MidiBusLock) -> Studio {
-    let song = Song::new("untitled", config.clone(), midi_bus.clone());
+  pub fn new(config: Config) -> Studio {
+    let song = Song::new("untitled", &config);
+
+    let sample_rate = config.audio.sample_rate;
+    let transport = Transport::new(sample_rate);
+
+    let metronome_config = config.metronome.clone();
+    let signature = *transport.get_signature();
+    let metronome = Metronome::new(metronome_config, signature);
 
     Studio {
       config,
-      midi_bus,
+      transport,
+      metronome,
       song,
     }
+  }
+
+  pub fn config(&self) -> &Config {
+    &self.config
   }
 
   pub fn song(&self) -> &Song {
@@ -51,24 +56,103 @@ impl Studio {
     &mut self.song
   }
 
-  pub fn play(&mut self, restart: bool) {
-    self.song.play(restart);
+  pub fn set_loop_enabled(&mut self, enabled: bool) {
+    self.transport.set_loop_enabled(enabled);
   }
 
-  pub fn audio_handler(
+  pub fn set_loop_start(&mut self, position: BarsTime) {
+    self.transport.set_loop_start(position);
+  }
+
+  pub fn set_loop_end(&mut self, position: BarsTime) {
+    self.transport.set_loop_end(position)
+  }
+
+  pub fn play(&mut self, restart: bool) -> bool {
+    self.transport.play(restart);
+    self.transport.is_playing()
+  }
+
+  pub fn stop(&mut self) {
+    self.transport.stop();
+  }
+
+  #[allow(clippy::too_many_arguments)]
+  pub fn process(
     &mut self,
-    audio_time: AudioTime,
     frames: usize,
-    _in_buffer: &[f32],
-    _out_buffer: &mut [f32],
+    _input_time: ClockTime,
+    _audio_input_channels: usize,
+    _audio_input: &audio::Buffer,
+    audio_output_channels: usize,
+    audio_output: &mut audio::Buffer,
+    midi_buffer_pool: &mut Pool<midi::Buffer>,
+    // TODO midi_input: &midi::IoVec,
+    midi_output: &mut midi::BufferIoVec,
   ) {
-    // retrieve midi events from the armed track's input port
-    // retrieve midi events from the tracks from time.output
-    // schedule midi events to the output ports
-    // process the audio for time.output taking into consideration the midi events
+    if self.transport.is_playing() {
+      let mut metronome_buffer = midi_buffer_pool.get_or_alloc();
 
-    self.song.process(audio_time, frames as u32);
+      let base_time = ClockTime::zero();
+      let mut segments = self.transport.segments_iterator(base_time, frames as u32);
+      while let Some(segment) = segments.next(&self.transport) {
+        self
+          .metronome
+          .process_segment(&segment, &mut metronome_buffer);
+        self.song.process_segment(&segment);
+      }
+      self.transport.update_from_segments(&segments);
+
+      midi_output.push(midi::BufferIo {
+        endpoint: self.metronome.endpoint(),
+        buffer: Some(metronome_buffer),
+      });
+
+      let out = audio_output.slice_mut(frames * audio_output_channels);
+      fill_with_zero(out);
+
+    //      for i in 0..frames {
+    //        let v = i as f32 / frames as f32;
+    //        let u = i * _audio_input_channels;
+    //        let j = i * audio_output_channels;
+    //        for k in 0..audio_output_channels {
+    //          audio_output[j + k] = _audio_input[u] + v * 0.20;
+    //        }
+    //      }
+    } else {
+      let out = audio_output.slice_mut(frames * audio_output_channels);
+      fill_with_zero(out);
+    }
   }
+
+  // pub fn audio_handler(
+  //   &mut self,
+  //   audio_time: AudioTime,
+  //   frames: usize,
+  //   _in_buffer: &[f32],
+  //   _out_buffer: &mut [f32],
+  // ) {
+  //   // retrieve midi events from the armed track's input port
+  //   // retrieve midi events from the tracks from time.output
+  //   // schedule midi events to the output ports
+  //   // process the audio for time.output taking into consideration the midi events
+
+  //   if self.transport.is_playing() {
+  //     let mut metronome_buffer = self.midi_buffer_pool.get_or_alloc();
+
+  //     let master_clock = audio_time.output;
+  //     let mut segments = self.transport.segments_iterator(master_clock, frames as u32);
+  //     while let Some(segment) = segments.next(&self.transport) {
+
+  //       self.metronome.process_segment(&segment, &mut metronome_buffer);
+  //       self.song.process_segment(&segment);
+  //     }
+  //     self.transport.update_from_segments(&segments);
+
+  //   }
+
+  //   // TODO some devices might need to keep track of time even when not playing
+  // }
 }
 
 impl fmt::Debug for Studio {
