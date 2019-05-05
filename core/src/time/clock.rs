@@ -32,7 +32,7 @@ impl ClockTime {
   }
 
   pub fn from_samples(samples: u32, sample_rate: SampleRate) -> ClockTime {
-    ClockTime(samples as UnitType * UNITS_PER_SECOND / sample_rate as UnitType)
+    ClockTime(UnitType::from(samples) * UNITS_PER_SECOND / UnitType::from(sample_rate))
   }
 
   pub fn units(&self) -> UnitType {
@@ -49,8 +49,8 @@ impl ClockTime {
 
   pub fn to_ticks(&self, signature: Signature, tempo: Tempo) -> TicksTime {
     let ticks_per_minute = u64::from(TicksTime::per_minute(signature, tempo));
-    let ticks = self.0 * ticks_per_minute / UNITS_PER_MINUTE;
-    TicksTime::new(ticks)
+    let ticks = u128::from(self.0) * u128::from(ticks_per_minute) / u128::from(UNITS_PER_MINUTE);
+    TicksTime::new(ticks as u64)
   }
 }
 
@@ -87,7 +87,7 @@ impl Mul<u32> for ClockTime {
   type Output = ClockTime;
 
   fn mul(self, rhs: u32) -> ClockTime {
-    ClockTime(self.0 * rhs as UnitType)
+    ClockTime(self.0 * UnitType::from(rhs))
   }
 }
 
@@ -109,7 +109,7 @@ impl Div<u32> for ClockTime {
   type Output = ClockTime;
 
   fn div(self, rhs: u32) -> ClockTime {
-    ClockTime(self.0 / rhs as UnitType)
+    ClockTime(self.0 / UnitType::from(rhs))
   }
 }
 

@@ -6,6 +6,7 @@ use serde_derive::Deserialize;
 
 use std::fs::File;
 use std::io::Read;
+use std::str::FromStr;
 use std::sync::{Arc, RwLock};
 
 pub type ConfigLock = Arc<RwLock<Config>>;
@@ -28,6 +29,15 @@ impl Default for Config {
   }
 }
 
+impl FromStr for Config {
+  type Err = Error;
+
+  fn from_str(content: &str) -> Result<Self, Self::Err> {
+    let config: Config = toml::from_str(content)?;
+    Ok(config)
+  }
+}
+
 impl Config {
   pub fn from_file<'a, T>(path: T) -> Result<Config, Error>
   where
@@ -38,14 +48,6 @@ impl Config {
     let mut file = File::open(path_str)?;
     file.read_to_string(&mut content)?;
     let config: Config = toml::from_str(&content)?;
-    Ok(config)
-  }
-
-  pub fn from_str<'a, T>(content: T) -> Result<Config, Error>
-  where
-    T: Into<&'a str>,
-  {
-    let config: Config = toml::from_str(content.into())?;
     Ok(config)
   }
 }
@@ -83,9 +85,9 @@ impl Default for Audio {
 #[serde(default)]
 #[derive(Deserialize, Debug, Clone)]
 pub struct Midi {
+  pub driver_id: String,
   pub default_input: MidiPort,
   pub default_output: MidiPort,
-
   pub virtual_ports: Vec<MidiVirtualPort>,
 }
 
@@ -111,6 +113,7 @@ pub struct MidiVirtualPort {
 impl Default for Midi {
   fn default() -> Midi {
     Midi {
+      driver_id: "default".to_string(),
       default_input: MidiPort::All,
       default_output: MidiPort::SystemDefault,
       virtual_ports: Vec::new(),

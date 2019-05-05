@@ -13,13 +13,13 @@ impl Tempo {
 
 impl From<Tempo> for f64 {
   fn from(item: Tempo) -> Self {
-    item.0 as f64
+    f64::from(item.0)
   }
 }
 
 impl From<Tempo> for u64 {
   fn from(item: Tempo) -> Self {
-    item.0 as u64
+    u64::from(item.0)
   }
 }
 

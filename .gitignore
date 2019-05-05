@@ -8,3 +8,8 @@ wasm-pack.log
 .idea/
 *.iml
 .DS_Store
+core-neon/
+app-wasm/
+*.code-workspace
+.vscode/
+*.log

@@ -52,7 +52,6 @@ impl Encoder {
       Message::OmniModeOn { .. } => 3,
       Message::MonoModeOn { .. } => 3,
       Message::PolyModeOn { .. } => 3,
-      Message::SysEx { data } => data.len() + 2,
       Message::MTCQuarterFrame { .. } => 2,
       Message::SongPositionPointer { .. } => 3,
       Message::SongSelect { .. } => 2,
@@ -63,7 +62,6 @@ impl Encoder {
       Message::Stop => 1,
       Message::ActiveSensing => 1,
       Message::SystemReset => 1,
-      Message::Unknown(data) => data.len(),
     }
   }
 
@@ -132,27 +130,31 @@ impl Encoder {
       Message::PolyModeOn { channel } => {
         out[..3].copy_from_slice(&[status_and_channel(0b1011, channel), 127, 0])
       }
-      Message::SysEx { data } => {
-        out[0] = 0b11110000;
-        out[1..=data.len()].copy_from_slice(&data);
-        out[data.len() + 1] = 0b11110111
-      }
       Message::MTCQuarterFrame { msg_type, value } => {
-        out[..2].copy_from_slice(&[0b11110001, (u3(msg_type) << 4) | u4(value)])
+        out[..2].copy_from_slice(&[0b1111_0001, (u3(msg_type) << 4) | u4(value)])
       }
       Message::SongPositionPointer { beats } => {
-        out[..3].copy_from_slice(&[0b11110010, u14_lsb(beats), u14_msb(beats)])
+        out[..3].copy_from_slice(&[0b1111_0010, u14_lsb(beats), u14_msb(beats)])
       }
-      Message::SongSelect { song } => out[..2].copy_from_slice(&[0b11110011, u7(song)]),
-      Message::TuneRequest => out[0] = 0b11110110,
-      Message::TimingClock => out[0] = 0b11111000,
-      Message::Start => out[0] = 0b11111010,
-      Message::Continue => out[0] = 0b11111011,
-      Message::Stop => out[0] = 0b11111100,
-      Message::ActiveSensing => out[0] = 0b11111110,
-      Message::SystemReset => out[0] = 0b11111111,
-      Message::Unknown(unk_data) => out.copy_from_slice(&unk_data),
+      Message::SongSelect { song } => out[..2].copy_from_slice(&[0b1111_0011, u7(song)]),
+      Message::TuneRequest => out[0] = 0b1111_0110,
+      Message::TimingClock => out[0] = 0b1111_1000,
+      Message::Start => out[0] = 0b1111_1010,
+      Message::Continue => out[0] = 0b1111_1011,
+      Message::Stop => out[0] = 0b1111_1100,
+      Message::ActiveSensing => out[0] = 0b1111_1110,
+      Message::SystemReset => out[0] = 0b1111_1111,
     }
+  }
+
+  pub fn sysex_data_size(data: &[U7]) -> usize {
+    data.len() + 2
+  }
+
+  pub fn sysex_encode(data: &[U7], out: &mut [u8]) {
+    out[0] = 0b1111_0000;
+    out[1..=data.len()].copy_from_slice(&data);
+    out[data.len() + 1] = 0b1111_0111
   }
 }
 
@@ -178,17 +180,17 @@ mod test {
 
   #[test]
   pub fn test_u14_lsb() {
-    assert_eq!(u14_lsb(&0b10101010101010), 0b0101010);
+    assert_eq!(u14_lsb(&0b10_1010_1010_1010), 0b010_1010);
   }
 
   #[test]
   pub fn test_u14_msb() {
-    assert_eq!(u14_msb(&0b10101010101010), 0b1010101);
+    assert_eq!(u14_msb(&0b10_1010_1010_1010), 0b101_0101);
   }
 
   #[test]
   pub fn test_status_and_channel() {
-    assert_eq!(status_and_channel(0b10101010, &0b01010101), 0b10100101);
+    assert_eq!(status_and_channel(0b1010_1010, &0b0101_0101), 0b1010_0101);
   }
 
   #[test]
@@ -199,7 +201,7 @@ mod test {
         key: 65,
         velocity: 120,
       },
-      vec![0b10000001, 65, 120],
+      vec![0b1000_0001, 65, 120],
     )
   }
 
@@ -211,7 +213,7 @@ mod test {
         key: 65,
         velocity: 120,
       },
-      vec![0b10010001, 65, 120],
+      vec![0b1001_0001, 65, 120],
     )
   }
 
@@ -223,7 +225,7 @@ mod test {
         key: 65,
         value: 120,
       },
-      vec![0b10100001, 65, 120],
+      vec![0b1010_0001, 65, 120],
     )
   }
 
@@ -235,7 +237,7 @@ mod test {
         controller: 65,
         value: 120,
       },
-      vec![0b10110001, 65, 120],
+      vec![0b1011_0001, 65, 120],
     )
   }
 
@@ -246,7 +248,7 @@ mod test {
         channel: 1,
         value: 120,
       },
-      vec![0b11000001, 120],
+      vec![0b1100_0001, 120],
     )
   }
 
@@ -257,7 +259,7 @@ mod test {
         channel: 1,
         value: 120,
       },
-      vec![0b11010001, 120],
+      vec![0b1101_0001, 120],
     )
   }
 
@@ -266,9 +268,9 @@ mod test {
     assert_encoding(
       &Message::PitchBend {
         channel: 1,
-        value: 0b10101010101010,
+        value: 0b10_1010_1010_1010,
       },
-      vec![0b11100001, 0b0101010, 0b1010101],
+      vec![0b1110_0001, 0b010_1010, 0b101_0101],
     )
   }
 
@@ -276,7 +278,7 @@ mod test {
   pub fn all_sound_off() {
     assert_encoding(
       &Message::AllSoundOff { channel: 1 },
-      vec![0b10110001, 120, 0],
+      vec![0b1011_0001, 120, 0],
     )
   }
 
@@ -284,7 +286,7 @@ mod test {
   pub fn reset_all_controllers() {
     assert_encoding(
       &Message::ResetAllControllers { channel: 1 },
-      vec![0b10110001, 121, 0],
+      vec![0b1011_0001, 121, 0],
     )
   }
 
@@ -292,7 +294,7 @@ mod test {
   pub fn local_control_off() {
     assert_encoding(
       &Message::LocalControlOff { channel: 1 },
-      vec![0b10110001, 122, 0],
+      vec![0b1011_0001, 122, 0],
     )
   }
 
@@ -300,7 +302,7 @@ mod test {
   pub fn local_control_on() {
     assert_encoding(
       &Message::LocalControlOn { channel: 1 },
-      vec![0b10110001, 122, 127],
+      vec![0b1011_0001, 122, 127],
     )
   }
 
@@ -308,7 +310,7 @@ mod test {
   pub fn all_notes_off() {
     assert_encoding(
       &Message::AllNotesOff { channel: 1 },
-      vec![0b10110001, 123, 0],
+      vec![0b1011_0001, 123, 0],
     )
   }
 
@@ -316,7 +318,7 @@ mod test {
   pub fn omni_mode_off() {
     assert_encoding(
       &Message::OmniModeOff { channel: 1 },
-      vec![0b10110001, 124, 0],
+      vec![0b1011_0001, 124, 0],
     )
   }
 
@@ -327,7 +329,7 @@ mod test {
         channel: 1,
         num_channels: 5,
       },
-      vec![0b10110001, 126, 5],
+      vec![0b1011_0001, 126, 5],
     )
   }
 
@@ -335,17 +337,15 @@ mod test {
   pub fn poly_mode_on() {
     assert_encoding(
       &Message::PolyModeOn { channel: 1 },
-      vec![0b10110001, 127, 0],
+      vec![0b1011_0001, 127, 0],
     )
   }
 
   #[test]
   pub fn sysex() {
-    assert_encoding(
-      &Message::SysEx {
-        data: vec![1, 2, 3, 4, 5],
-      },
-      vec![0b11110000, 1, 2, 3, 4, 5, 0b11110111],
+    assert_sysex_encoding(
+      vec![1, 2, 3, 4, 5],
+      vec![0b1111_0000, 1, 2, 3, 4, 5, 0b1111_0111],
     )
   }
 
@@ -356,7 +356,7 @@ mod test {
         msg_type: 2,
         value: 5,
       },
-      vec![0b11110001, 0b0100101],
+      vec![0b1111_0001, 0b010_0101],
     )
   }
 
@@ -364,55 +364,50 @@ mod test {
   pub fn song_position_pointer() {
     assert_encoding(
       &Message::SongPositionPointer {
-        beats: 0b10101010101010,
+        beats: 0b10_1010_1010_1010,
       },
-      vec![0b11110010, 0b0101010, 0b1010101],
+      vec![0b1111_0010, 0b010_1010, 0b101_0101],
     )
   }
 
   #[test]
   pub fn song_select() {
-    assert_encoding(&Message::SongSelect { song: 54 }, vec![0b11110011, 54])
+    assert_encoding(&Message::SongSelect { song: 54 }, vec![0b1111_0011, 54])
   }
 
   #[test]
   pub fn tune_request() {
-    assert_encoding(&Message::TuneRequest, vec![0b11110110])
+    assert_encoding(&Message::TuneRequest, vec![0b1111_0110])
   }
 
   #[test]
   pub fn timing_clock() {
-    assert_encoding(&Message::TimingClock, vec![0b11111000])
+    assert_encoding(&Message::TimingClock, vec![0b1111_1000])
   }
 
   #[test]
   pub fn start() {
-    assert_encoding(&Message::Start, vec![0b11111010])
+    assert_encoding(&Message::Start, vec![0b1111_1010])
   }
 
   #[test]
   pub fn test_continue() {
-    assert_encoding(&Message::Continue, vec![0b11111011])
+    assert_encoding(&Message::Continue, vec![0b1111_1011])
   }
 
   #[test]
   pub fn stop() {
-    assert_encoding(&Message::Stop, vec![0b11111100])
+    assert_encoding(&Message::Stop, vec![0b1111_1100])
   }
 
   #[test]
   pub fn active_sensing() {
-    assert_encoding(&Message::ActiveSensing, vec![0b11111110])
+    assert_encoding(&Message::ActiveSensing, vec![0b1111_1110])
   }
 
   #[test]
   pub fn system_reset() {
-    assert_encoding(&Message::SystemReset, vec![0b11111111])
-  }
-
-  #[test]
-  pub fn unknown() {
-    assert_encoding(&Message::Unknown(vec![1, 2, 3, 4]), vec![1, 2, 3, 4])
+    assert_encoding(&Message::SystemReset, vec![0b1111_1111])
   }
 
   fn assert_encoding(msg: &Message, expected: Vec<u8>) {
@@ -420,6 +415,14 @@ mod test {
     let mut data = Vec::<u8>::with_capacity(data_len);
     unsafe { data.set_len(data_len) };
     Encoder::encode(msg, data.as_mut_slice());
+    assert_eq!(data, expected);
+  }
+
+  fn assert_sysex_encoding(msg: Vec<U7>, expected: Vec<u8>) {
+    let data_len = Encoder::sysex_data_size(&msg);
+    let mut data = Vec::<u8>::with_capacity(data_len);
+    unsafe { data.set_len(data_len) };
+    Encoder::sysex_encode(&msg, data.as_mut_slice());
     assert_eq!(data, expected);
   }
 }
