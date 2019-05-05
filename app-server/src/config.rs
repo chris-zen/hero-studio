@@ -37,6 +37,7 @@ impl Config {
     Ok(config)
   }
 
+  #[allow(dead_code)]
   pub fn from_str<'a, T>(content: T) -> Result<Config, Error>
   where
     T: Into<&'a str>,

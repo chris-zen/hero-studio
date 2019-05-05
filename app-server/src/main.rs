@@ -33,14 +33,14 @@ mod realtime_thread;
 
 //const APP_NAME: &'static str = "Hero Studio";
 
-const HERO_STUDIO_CONFIG: &'static str = "HERO_STUDIO_CONFIG";
-const DEFAULT_HERO_STUDIO_CONFIG: &'static str = "studio.toml";
+const HERO_STUDIO_CONFIG: &str = "HERO_STUDIO_CONFIG";
+const DEFAULT_HERO_STUDIO_CONFIG: &str = "studio.toml";
 
-const HERO_STUDIO_APP_CONFIG: &'static str = "HERO_STUDIO_APP_CONFIG";
-const DEFAULT_HERO_STUDIO_APP_CONFIG: &'static str = "app.toml";
+const HERO_STUDIO_APP_CONFIG: &str = "HERO_STUDIO_APP_CONFIG";
+const DEFAULT_HERO_STUDIO_APP_CONFIG: &str = "app.toml";
 
-const HERO_STUDIO_LOG_CONFIG: &'static str = "HERO_STUDIO_LOG_CONFIG";
-const DEFAULT_HERO_STUDIO_LOG_CONFIG: &'static str = "log4rs.yaml";
+const HERO_STUDIO_LOG_CONFIG: &str = "HERO_STUDIO_LOG_CONFIG";
+const DEFAULT_HERO_STUDIO_LOG_CONFIG: &str = "log4rs.yaml";
 
 #[derive(Debug, Fail)]
 enum MainError {

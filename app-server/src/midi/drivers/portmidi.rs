@@ -10,7 +10,7 @@ use hero_studio_core::time::ClockTime;
 
 use super::{MidiDestination, MidiDriver, MidiEndpoint, MidiError, MidiOutput, MidiResult};
 
-pub const ID: &'static str = "PortMIDI";
+pub const ID: &str = "PortMIDI";
 
 const MIDI_BUF_LEN: usize = 8 * 1024;
 
@@ -53,7 +53,7 @@ impl MidiDriver for PortMidiDriver {
       .flat_map(|devices| {
         devices
           .into_iter()
-          .filter(|device| device.is_output())
+          .filter(DeviceInfo::is_output)
           .collect::<Vec<DeviceInfo>>()
           .into_iter()
           .map(|device| {
@@ -85,8 +85,8 @@ pub struct PortMidiDestination {
 // }
 
 impl MidiEndpoint for PortMidiDestination {
-  fn name(&self) -> String {
-    self.name.clone()
+  fn name(&self) -> &str {
+    self.name.as_str()
   }
 }
 
@@ -112,7 +112,7 @@ const MESSAGE_BUFFER_CAPACITY: usize = 8;
 
 struct PortMidiOutput {
   name: String,
-  context: Rc<PortMidi>,
+  _context: Rc<PortMidi>,
   port: OutputPort,
   message_buffer: [u8; MESSAGE_BUFFER_CAPACITY],
 }
@@ -127,14 +127,10 @@ impl PortMidiOutput {
   fn new(name: String, context: Rc<PortMidi>, port: OutputPort) -> PortMidiOutput {
     PortMidiOutput {
       name,
-      context,
+      _context: context,
       port,
       message_buffer: [0; MESSAGE_BUFFER_CAPACITY],
     }
-  }
-
-  fn name(&self) -> &str {
-    self.name.as_str()
   }
 
   fn send_message(&mut self, time: ClockTime, msg: &Message) {
@@ -164,7 +160,7 @@ impl PortMidiOutput {
     };
 
     let event = MidiEvent { message, timestamp };
-    drop(self.port.write_event(event));
+    let _ = self.port.write_event(event);
   }
 
   // fn send_sysex_message(&mut self, time: ClockTime, msg: &[U7]) {
@@ -180,6 +176,12 @@ impl PortMidiOutput {
   //     .write_sysex(timestamp, data.as_slice())
   //     .unwrap_or(());
   // }
+}
+
+impl MidiEndpoint for PortMidiOutput {
+  fn name(&self) -> &str {
+    self.name.as_str()
+  }
 }
 
 impl MidiOutput for PortMidiOutput {

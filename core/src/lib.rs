@@ -1,6 +1,8 @@
 // FIXME Remove when the code gets more stable
 #![allow(unused_imports)]
 #![allow(dead_code)]
+#![allow(clippy::trivially_copy_pass_by_ref)]
+
 pub mod audio;
 pub mod color;
 pub mod config;

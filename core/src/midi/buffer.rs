@@ -11,9 +11,15 @@ pub struct Buffer {
   events: Vec<Event>,
 }
 
+impl Default for Buffer {
+  fn default() -> Self {
+    Buffer { events: Vec::new() }
+  }
+}
+
 impl Buffer {
   pub fn new() -> Buffer {
-    Buffer { events: Vec::new() }
+    Buffer::default()
   }
 
   pub fn with_capacity(capacity: usize) -> Buffer {
@@ -38,7 +44,9 @@ impl Buffer {
 
 pub fn new_buffer_pool(pool_capacity: usize, buffer_capacity: usize) -> Pool<Buffer> {
   let allocator = Box::new(move || Box::new(Buffer::with_capacity(buffer_capacity)));
-  let reset = Box::new(|item: &mut Buffer| drop(item.reset()));
+  let reset = Box::new(|item: &mut Buffer| {
+    item.reset();
+  });
   Pool::new(pool_capacity, allocator, reset)
 }
 
@@ -59,6 +67,6 @@ pub type BufferIoVec = Vec<BufferIo>;
 
 pub fn new_buffer_io_vec_pool(pool_capacity: usize, vec_capacity: usize) -> Pool<BufferIoVec> {
   let allocator = Box::new(move || Box::new(Vec::with_capacity(vec_capacity)));
-  let reset = Box::new(|vec: &mut BufferIoVec| vec.clear());
+  let reset = Box::new(std::vec::Vec::clear);
   Pool::new(pool_capacity, allocator, reset)
 }

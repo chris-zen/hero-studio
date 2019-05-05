@@ -14,10 +14,10 @@ impl TicksDriftCorrection {
   pub fn new(signature: Signature, tempo: Tempo, sample_rate: SampleRate) -> TicksDriftCorrection {
     let ticks_per_beat = f64::from(BarsTime::new(0, 1, 0, 0).to_ticks(signature));
     let ticks_per_sample =
-      ticks_per_beat * f64::from(tempo) / (SECONDS_PER_MINUTE * sample_rate as f64);
+      ticks_per_beat * f64::from(tempo) / (SECONDS_PER_MINUTE * f64::from(sample_rate));
     let error_per_second = f64::from(ClockTime::from_seconds(1.0).to_ticks(signature, tempo))
-      - ticks_per_sample * sample_rate as f64;
-    let error_per_sample = error_per_second / sample_rate as f64;
+      - ticks_per_sample * f64::from(sample_rate);
+    let error_per_sample = error_per_second / f64::from(sample_rate);
     // println!("ticks_per_sample={:?}, ticks_per_sec={:?}, ticks_per_sec_we={:?}, error_per_sec={:?}, error_per_sample={:?}",
     //   ticks_per_sample,
     //   f64::from(ClockTime::from_seconds(1.0).to_ticks(signature, tempo)),
@@ -49,9 +49,9 @@ impl TicksDriftCorrection {
   }
 
   pub fn next(&mut self, samples: u32) -> TicksTime {
-    let samples_ticks = self.ticks_per_sample * samples as f64;
+    let samples_ticks = self.ticks_per_sample * f64::from(samples);
     let samples_error =
-      samples_ticks - samples_ticks.round() + self.error_per_sample * samples as f64;
+      samples_ticks - samples_ticks.round() + self.error_per_sample * f64::from(samples);
     let total_error = self.error_accumulated + samples_error;
     if total_error.abs() >= 1.0 {
       self.last_correction = total_error.round();
@@ -74,8 +74,8 @@ mod test {
   #[test]
   pub fn ticks_drift_correction_new() {
     let correction = TicksDriftCorrection::new(Signature::new(6, 13), Tempo::new(130), 44100);
-    assert_eq!(correction.ticks_per_sample, 4.190461073318216);
-    assert_eq!(correction.error_per_sample, -0.000007558578987370399);
+    assert_eq!(correction.ticks_per_sample, 4.190_461_073_318_216);
+    assert_eq!(correction.error_per_sample, -0.000_007_558_578_987_370_399);
     assert_eq!(correction.error_accumulated, 0.0);
     assert_eq!(correction.last_correction, 0.0);
   }

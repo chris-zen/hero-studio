@@ -5,7 +5,7 @@ use audio_thread_priority::{
 
 pub type Result<T> = std::result::Result<T, RealTimeAudioPriorityError>;
 
-const ERROR_MSG: &'static str = "Thread could not be promoted to real time";
+const ERROR_MSG: &str = "Thread could not be promoted to real time";
 
 #[derive(Debug, Clone)]
 pub struct RealTimeAudioPriorityError {}
@@ -38,7 +38,7 @@ impl RealTimeAudioPriority {
 
   #[cfg(any(target_os = "macos", target_os = "windows"))]
   fn promote_rt(sample_rate: u32, buffer_size: u32) -> Result<RealTimeAudioPriority> {
-    promote_current_thread_to_real_time(buffer_size.into(), sample_rate.into())
+    promote_current_thread_to_real_time(buffer_size, sample_rate)
       .map(|handle| RealTimeAudioPriority {
         handle: Some(handle),
       })
@@ -48,7 +48,7 @@ impl RealTimeAudioPriority {
   #[cfg(any(target_os = "macos", target_os = "windows"))]
   fn demote_rt(&mut self) {
     self.handle.take().into_iter().for_each(|handle| {
-      drop(demote_current_thread_from_real_time(handle));
+      let _ = demote_current_thread_from_real_time(handle);
     });
   }
 

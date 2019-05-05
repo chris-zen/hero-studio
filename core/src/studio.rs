@@ -77,6 +77,7 @@ impl Studio {
     self.transport.stop();
   }
 
+  #[allow(clippy::too_many_arguments)]
   pub fn process(
     &mut self,
     frames: usize,
@@ -84,7 +85,7 @@ impl Studio {
     _audio_input_channels: usize,
     _audio_input: &audio::Buffer,
     audio_output_channels: usize,
-    _audio_output: &mut audio::Buffer,
+    audio_output: &mut audio::Buffer,
     midi_buffer_pool: &mut Pool<midi::Buffer>,
     // TODO midi_input: &midi::IoVec,
     midi_output: &mut midi::BufferIoVec,
@@ -107,19 +108,19 @@ impl Studio {
         buffer: Some(metronome_buffer),
       });
 
-      let out = _audio_output.slice_mut(frames * audio_output_channels);
+      let out = audio_output.slice_mut(frames * audio_output_channels);
       fill_with_zero(out);
 
-//      for i in 0..frames {
-//        let v = i as f32 / frames as f32;
-//        let u = i * _audio_input_channels;
-//        let j = i * audio_output_channels;
-//        for k in 0..audio_output_channels {
-//          _audio_output[j + k] = _audio_input[u] + v * 0.20;
-//        }
-//      }
+    //      for i in 0..frames {
+    //        let v = i as f32 / frames as f32;
+    //        let u = i * _audio_input_channels;
+    //        let j = i * audio_output_channels;
+    //        for k in 0..audio_output_channels {
+    //          audio_output[j + k] = _audio_input[u] + v * 0.20;
+    //        }
+    //      }
     } else {
-      let out = _audio_output.slice_mut(frames * audio_output_channels);
+      let out = audio_output.slice_mut(frames * audio_output_channels);
       fill_with_zero(out);
     }
   }

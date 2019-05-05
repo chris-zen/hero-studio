@@ -79,7 +79,7 @@ impl Metronome {
     tempo: Tempo,
   ) {
     // TODO duration_ticks only needs to be calculated once per note
-    let duration_ticks = TicksTime::new(16 * TICKS_RESOLUTION / note.duration as u64);
+    let duration_ticks = TicksTime::new(16 * TICKS_RESOLUTION / u64::from(note.duration));
     let duration_time = duration_ticks.to_clock(signature, tempo);
     let end_time = start_time + duration_time;
 
@@ -103,7 +103,7 @@ impl Metronome {
 
   fn bar_and_beat_duration(signature: Signature) -> (TicksTime, TicksTime) {
     let bar_duration = BarsTime::from_bars(1).to_ticks(signature);
-    let beat_duration = bar_duration / signature.get_num_beats() as u64;
+    let beat_duration = bar_duration / u64::from(signature.get_num_beats());
     (bar_duration, beat_duration)
   }
 

@@ -3,6 +3,7 @@ use std::ops::{Deref, DerefMut};
 pub type Allocator<T> = Fn() -> Box<T>;
 pub type Reset<T> = Fn(&mut T);
 
+#[allow(clippy::vec_box)]
 pub struct Pool<T> {
   allocator: Box<Allocator<T>>,
   reset: Box<Reset<T>>,
@@ -28,7 +29,8 @@ impl<T> Pool<T> {
   }
 
   pub fn get_or_alloc(&mut self) -> Box<T> {
-    self.items.pop().unwrap_or_else(|| (self.allocator)())
+    let alloc = &*self.allocator;
+    self.items.pop().unwrap_or_else(alloc)
   }
 
   pub fn release(&mut self, mut item: Box<T>) {
