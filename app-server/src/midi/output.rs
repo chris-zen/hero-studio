@@ -14,7 +14,7 @@ use hero_studio_core::config::{Audio as AudioConfig, Midi as MidiConfig};
 use hero_studio_core::midi::buffer::Endpoint;
 
 use crate::midi::drivers::{MidiDriver, MidiDrivers, MidiOutput as MidiOutputPort};
-use crate::midi::endpoints::{Endpoints, EndpointId};
+use crate::midi::endpoints::{EndpointId, Endpoints};
 use crate::realtime_thread::RealTimeAudioPriority;
 use crate::studio_workers::Protocol as StudioProtocol;
 
@@ -88,7 +88,7 @@ impl MidiOutputThread {
     }
   }
 
-  fn send_buffer_io_vec(&mut self, base_time: ClockTime, buffer_io_vec: &midi::BufferIoVec) {
+  fn send_buffer_io_vec(&mut self, base_time: ClockTime, buffer_io_vec: &[midi::BufferIo]) {
     for buffer_io in buffer_io_vec.iter() {
       if let Some(buffer) = &buffer_io.buffer {
         match buffer_io.endpoint {
@@ -112,8 +112,12 @@ impl MidiOutputThread {
     }
   }
 
-  fn update_endpoints(_config: &MidiConfig, driver: &MidiDriver, endpoints: &mut Endpoints<MidiOutputPort>) {
-    let mut unvisited: HashSet<EndpointId> = endpoints.ids().map(|id| *id).collect();
+  fn update_endpoints(
+    _config: &MidiConfig,
+    driver: &MidiDriver,
+    endpoints: &mut Endpoints<MidiOutputPort>,
+  ) {
+    let mut unvisited: HashSet<EndpointId> = endpoints.ids().cloned().collect();
 
     // TODO send the updates to the studio worker
 
@@ -123,13 +127,11 @@ impl MidiOutputThread {
       if let Some(id) = endpoints.get_id_from_name(&name) {
         unvisited.remove(&id);
         debug!("(=) {} [{}]", name, id);
+      } else if let Ok(endpoint) = destination.open() {
+        let id = endpoints.add(name, endpoint);
+        debug!("(+) {} [{}]", name, id);
       } else {
-        if let Ok(endpoint) = destination.open() {
-          let id = endpoints.add(name.clone(), endpoint);
-          debug!("(+) {} [{}]", name, id);
-        } else {
-          error!("Error opening MIDI output port: {}", name);
-        }
+        error!("Error opening MIDI output port: {}", name);
       }
     }
     endpoints.remove(unvisited, |name, id| debug!("(-) {} [{}]", name, id));

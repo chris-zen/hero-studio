@@ -20,13 +20,14 @@ impl TicksTime {
   }
 
   pub fn per_minute(signature: Signature, tempo: Tempo) -> TicksTime {
-    let ticks_per_beat = TICKS_RESOLUTION * 16 / signature.get_note_value() as u64;
+    let ticks_per_beat = TICKS_RESOLUTION * 16 / u64::from(signature.get_note_value());
     TicksTime::new(ticks_per_beat * u64::from(tempo))
   }
 
   pub fn to_clock(&self, signature: Signature, tempo: Tempo) -> ClockTime {
     let ticks_per_minute = TicksTime::per_minute(signature, tempo).0;
-    let clock_units = self.0 as u128 * clock::UNITS_PER_MINUTE as u128 / ticks_per_minute as u128;
+    let clock_units =
+      u128::from(self.0) * u128::from(clock::UNITS_PER_MINUTE) / u128::from(ticks_per_minute);
     ClockTime::new(clock_units as u64)
   }
 }
@@ -131,7 +132,7 @@ mod test {
     let signature = Signature::new(4, 4);
     let tempo = Tempo::new(120);
     let ticks = TicksTime::per_minute(signature, tempo);
-    assert_eq!(ticks.0, 33264000);
+    assert_eq!(ticks.0, 33_264_000);
   }
 
   #[test]

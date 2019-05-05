@@ -9,12 +9,17 @@ pub type BufferData = Vec<f32>;
 
 pub struct Buffer(BufferData);
 
-impl Buffer {
-  pub fn new() -> Buffer {
-    // Buffer([0.0; MAX_AUDIO_BUFFER_SIZE])
+impl Default for Buffer {
+  fn default() -> Self {
     let mut data = Vec::new();
     unsafe { data.set_len(MAX_AUDIO_BUFFER_SIZE) }
     Buffer(data)
+  }
+}
+
+impl Buffer {
+  pub fn new() -> Self {
+    Buffer::default()
   }
 
   pub fn with_capacity(capacity: usize) -> Buffer {

@@ -60,12 +60,12 @@ impl Message {
     }
   }
 
-  pub fn to_websocket_message(self) -> Option<OwnedMessage> {
+  pub fn into_websocket_message(self) -> Option<OwnedMessage> {
     match self {
       Message::Connection { .. } => None,
       Message::Close { .. } => Some(OwnedMessage::Close(None)),
       Message::Incoming { .. } => None,
-      Message::Outgoing { data, .. } => Some(OwnedMessage::Binary(data.into())),
+      Message::Outgoing { data, .. } => Some(OwnedMessage::Binary(data)),
       Message::Stop => None,
     }
   }
@@ -258,19 +258,16 @@ impl Server {
             _ => unreachable!(),
           };
 
-          match try_msg {
-            Ok(msg) => {
-              let is_close = msg.is_close();
-              trace!("{:?} Send: {:?}", addr, msg);
-              msg
-                .to_websocket_message()
-                .iter()
-                .for_each(|ws_msg| drop(sender.send_message::<OwnedMessage>(ws_msg)));
-              if is_close {
-                break;
-              }
+          if let Ok(msg) = try_msg {
+            let is_close = msg.is_close();
+            trace!("{:?} Send: {:?}", addr, msg);
+            msg
+              .into_websocket_message()
+              .iter()
+              .for_each(|ws_msg| drop(sender.send_message::<OwnedMessage>(ws_msg)));
+            if is_close {
+              break;
             }
-            _ => (),
           }
         }
 

@@ -39,13 +39,13 @@ impl Track {
   {
     Track {
       name: name.into(),
-      color: color,
+      color,
       mute: false,
       solo: false,
       rec: false,
       volume: 1.0,
       pan: 0.0,
-      media: media,
+      media,
       clips: Vec::new(),
     }
   }

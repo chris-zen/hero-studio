@@ -33,11 +33,17 @@ pub struct NotesClip {
   events: BTreeMap<TicksTime, NoteEvents>,
 }
 
-impl NotesClip {
-  pub fn new() -> NotesClip {
+impl Default for NotesClip {
+  fn default() -> Self {
     NotesClip {
       events: BTreeMap::new(),
     }
+  }
+}
+
+impl NotesClip {
+  pub fn new() -> NotesClip {
+    NotesClip::default()
   }
 
   pub fn add_note(&mut self, note: Note) -> &mut Self {
@@ -126,7 +132,7 @@ impl NotesClip {
       .events
       .entry(tick)
       .and_modify(|tick_events| tick_events.push(event))
-      .or_insert(vec![event]);
+      .or_insert_with(|| vec![event]);
   }
 
   fn remove_note_event(&mut self, tick: TicksTime, event: &NoteEvent) {

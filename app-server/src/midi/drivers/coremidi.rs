@@ -8,7 +8,7 @@ use hero_studio_core::time::ClockTime;
 
 use super::{MidiDestination, MidiDriver, MidiEndpoint, MidiError, MidiOutput, MidiResult};
 
-pub const ID: &'static str = "CoreMIDI";
+pub const ID: &str = "CoreMIDI";
 
 pub struct CoreMidi {
   client: Rc<Client>,
@@ -67,8 +67,8 @@ pub struct CoreMidiDestination {
 }
 
 impl MidiEndpoint for CoreMidiDestination {
-  fn name(&self) -> String {
-    self.name.clone()
+  fn name(&self) -> &str {
+    self.name.as_str()
   }
 }
 
@@ -96,7 +96,7 @@ const PACKET_BUFFER_CAPACITY: usize = 16 * 1024;
 
 struct CoreMidiOutput {
   name: String,
-  client: Rc<Client>,
+  _client: Rc<Client>,
   destination: Rc<Destination>,
   port: OutputPort,
   message_buffer: [u8; MESSAGE_CAPACITY],
@@ -115,14 +115,16 @@ impl CoreMidiOutput {
 
     CoreMidiOutput {
       name,
-      client,
+      _client: client,
       destination,
       port,
       message_buffer,
       packet_buffer,
     }
   }
+}
 
+impl MidiEndpoint for CoreMidiOutput {
   fn name(&self) -> &str {
     self.name.as_str()
   }
@@ -137,7 +139,7 @@ impl MidiOutput for CoreMidiOutput {
       let timestamp = base_time + event.timestamp;
       let data_size = Encoder::data_size(&event.message);
       if packet_buffer_size + data_size >= PACKET_BUFFER_CAPACITY {
-        drop(self.port.send(&self.destination, &self.packet_buffer));
+        let _ = self.port.send(&self.destination, &self.packet_buffer);
         self.packet_buffer.clear();
         packet_buffer_size = 0;
       }
@@ -150,7 +152,7 @@ impl MidiOutput for CoreMidiOutput {
         .push_data(host_time, &self.message_buffer[0..data_size]);
       packet_buffer_size += data_size;
     }
-    drop(self.port.send(&self.destination, &self.packet_buffer));
+    let _ = self.port.send(&self.destination, &self.packet_buffer);
   }
 }
 

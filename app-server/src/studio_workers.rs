@@ -122,8 +122,7 @@ impl MasterThread {
         }
 
         Protocol::MidiOutputInitialised => {
-          drop(self.send_initial_audio());
-          //          drop(self.send_initial_audio());
+          let _ = self.send_initial_audio();
         }
 
         Protocol::MidiReleased(io_vec) => {
@@ -199,6 +198,7 @@ impl StudioWorkers {
     crossbeam_channel::unbounded::<Protocol>()
   }
 
+  #[allow(clippy::too_many_arguments)]
   pub fn new(
     studio: Studio,
     app_config: AppConfig,

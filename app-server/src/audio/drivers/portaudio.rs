@@ -9,11 +9,11 @@ use portaudio::{
   DuplexStreamCallbackArgs, DuplexStreamSettings, PortAudio, Stream, StreamParameters,
 };
 
-use hero_studio_core::config::Audio as AudioConfig;
-
 use crate::audio::drivers::{AudioError, AudioResult};
 use crate::audio::io::Protocol;
 use crate::audio::io::{AudioIo, AudioIoResult};
+
+use hero_studio_core::config::Audio as AudioConfig;
 use hero_studio_core::time::ClockTime;
 
 const INTERLEAVED: bool = true;
@@ -111,11 +111,11 @@ impl PortAudioStream {
       latency,
     );
 
-    let sample_rate = config.sample_rate as f64;
+    let sample_rate = f64::from(config.sample_rate);
     portaudio.is_duplex_format_supported(input_params, output_params, sample_rate)?;
 
     // Construct the duplex stream
-    let num_frames = config.frames as u32;
+    let num_frames = u32::from(config.frames);
     let settings = DuplexStreamSettings::new(input_params, output_params, sample_rate, num_frames);
 
     let num_input_channels = input_info.max_input_channels as usize;
@@ -180,7 +180,7 @@ impl PortAudioStream {
 
   pub fn start(&mut self) -> AudioResult<()> {
     info!("Starting the audio stream ...");
-    self.stream.start().map_err(|err| err.into())
+    self.stream.start().map_err(Into::into)
   }
 
   pub fn wait(&self) {
@@ -191,11 +191,11 @@ impl PortAudioStream {
 
   pub fn stop(&mut self) -> AudioResult<()> {
     info!("Stopping the audio stream ...");
-    self.stream.stop().map_err(|err| err.into())
+    self.stream.stop().map_err(Into::into)
   }
 
   pub fn close(mut self) -> AudioResult<()> {
     info!("Closing the audio stream ...");
-    self.stream.close().map_err(|err| err.into())
+    self.stream.close().map_err(Into::into)
   }
 }

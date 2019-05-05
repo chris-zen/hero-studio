@@ -37,7 +37,7 @@ impl<'a> Decoder<'a> {
       start: 0,
       sysex_data: Vec::new(),
       sysex_decoding: false,
-      data: data,
+      data,
     }
   }
 
@@ -48,7 +48,7 @@ impl<'a> Decoder<'a> {
   fn next_data(&mut self) -> Result<U7, usize> {
     if self.pos < self.data.len() {
       let d1 = self.data[self.pos];
-      if d1 & 0b10000000 == 0 {
+      if d1 & 0b1000_0000 == 0 {
         self.pos += 1;
         Ok(d1)
       } else {
@@ -67,20 +67,23 @@ impl<'a> Decoder<'a> {
 
   fn decode_note(&mut self, channel: U4, is_on: bool) -> DecodedMessage {
     match self.next_data2() {
-      Ok((key, velocity)) => match is_on {
-        true => Message::NoteOn {
-          channel: channel,
-          key: key,
-          velocity: velocity,
+      Ok((key, velocity)) => {
+        if is_on {
+          Message::NoteOn {
+            channel,
+            key,
+            velocity,
+          }
+          .into()
+        } else {
+          Message::NoteOff {
+            channel,
+            key,
+            velocity,
+          }
+          .into()
         }
-        .into(),
-        false => Message::NoteOff {
-          channel: channel,
-          key: key,
-          velocity: velocity,
-        }
-        .into(),
-      },
+      }
       Err(end) => self.unknown(end),
     }
   }
@@ -88,8 +91,8 @@ impl<'a> Decoder<'a> {
   fn decode_polyphonic_key_pressure(&mut self, channel: U4) -> DecodedMessage {
     match self.next_data2() {
       Ok((key, pressure)) => Message::PolyphonicKeyPressure {
-        channel: channel,
-        key: key,
+        channel,
+        key,
         value: pressure,
       }
       .into(),
@@ -101,40 +104,40 @@ impl<'a> Decoder<'a> {
     match self.next_data2() {
       Ok((controller, value)) => match controller {
         120 => match value {
-          0 => Message::AllSoundOff { channel: channel }.into(),
+          0 => Message::AllSoundOff { channel }.into(),
           _ => self.unknown(self.pos),
         },
-        121 => Message::ResetAllControllers { channel: channel }.into(),
+        121 => Message::ResetAllControllers { channel }.into(),
         122 => match value {
-          0 => Message::LocalControlOff { channel: channel }.into(),
-          127 => Message::LocalControlOn { channel: channel }.into(),
+          0 => Message::LocalControlOff { channel }.into(),
+          127 => Message::LocalControlOn { channel }.into(),
           _ => self.unknown(self.pos),
         },
         123 => match value {
-          0 => Message::AllNotesOff { channel: channel }.into(),
+          0 => Message::AllNotesOff { channel }.into(),
           _ => self.unknown(self.pos),
         },
         124 => match value {
-          0 => Message::OmniModeOff { channel: channel }.into(),
+          0 => Message::OmniModeOff { channel }.into(),
           _ => self.unknown(self.pos),
         },
         125 => match value {
-          0 => Message::OmniModeOn { channel: channel }.into(),
+          0 => Message::OmniModeOn { channel }.into(),
           _ => self.unknown(self.pos),
         },
         126 => Message::MonoModeOn {
-          channel: channel,
+          channel,
           num_channels: value,
         }
         .into(),
         127 => match value {
-          0 => Message::PolyModeOn { channel: channel }.into(),
+          0 => Message::PolyModeOn { channel }.into(),
           _ => self.unknown(self.pos),
         },
         _ => Message::ControlChange {
-          channel: channel,
-          controller: controller,
-          value: value,
+          channel,
+          controller,
+          value,
         }
         .into(),
       },
@@ -145,7 +148,7 @@ impl<'a> Decoder<'a> {
   fn decode_program_change(&mut self, channel: U4) -> DecodedMessage {
     match self.next_data() {
       Ok(program) => Message::ProgramChange {
-        channel: channel,
+        channel,
         value: program,
       }
       .into(),
@@ -156,7 +159,7 @@ impl<'a> Decoder<'a> {
   fn decode_channel_pressure(&mut self, channel: U4) -> DecodedMessage {
     match self.next_data() {
       Ok(pressure) => Message::ChannelPressure {
-        channel: channel,
+        channel,
         value: pressure,
       }
       .into(),
@@ -167,8 +170,8 @@ impl<'a> Decoder<'a> {
   fn decode_pitch_bend(&mut self, channel: U4) -> DecodedMessage {
     match self.next_data2() {
       Ok((lsb, msb)) => Message::PitchBend {
-        channel: channel,
-        value: ((msb as U14) << 7) | (lsb as U14),
+        channel,
+        value: (U14::from(msb) << 7) | U14::from(lsb),
       }
       .into(),
       Err(end) => self.unknown(end),
@@ -189,7 +192,7 @@ impl<'a> Decoder<'a> {
   fn decode_song_position_pointer(&mut self) -> DecodedMessage {
     match self.next_data2() {
       Ok((lsb, msb)) => Message::SongPositionPointer {
-        beats: ((msb as U14) << 7) | (lsb as U14),
+        beats: (U14::from(msb) << 7) | U14::from(lsb),
       }
       .into(),
       Err(end) => self.unknown(end),
@@ -198,7 +201,7 @@ impl<'a> Decoder<'a> {
 
   fn decode_song_select(&mut self) -> DecodedMessage {
     match self.next_data() {
-      Ok(song) => Message::SongSelect { song: song }.into(),
+      Ok(song) => Message::SongSelect { song }.into(),
       Err(end) => self.unknown(end),
     }
   }
@@ -217,7 +220,7 @@ impl<'a> Decoder<'a> {
       self.sysex_decoding = false;
       let data = self.sysex_data.to_owned();
       self.sysex_data = Vec::new();
-      Some(DecodedMessage::SysEx { data: data })
+      Some(DecodedMessage::SysEx { data })
     } else {
       Some(self.unknown(self.pos))
     }
@@ -241,7 +244,7 @@ impl<'a> Decoder<'a> {
       self.sysex_decoding = false;
       let mut data = self.sysex_data.to_owned();
       self.sysex_data = Vec::new();
-      data.insert(0, 0b11110000);
+      data.insert(0, 0b1111_0000);
       Some(DecodedMessage::Unknown(data))
     }
   }
@@ -285,15 +288,13 @@ impl<'a> Iterator for Decoder<'a> {
   fn next(&mut self) -> Option<DecodedMessage> {
     if self.sysex_decoding {
       self.decode_sysex_data()
+    } else if self.pos < self.data.len() {
+      let status = self.data[self.pos];
+      self.start = self.pos;
+      self.pos += 1;
+      self.decode(status)
     } else {
-      if self.pos < self.data.len() {
-        let status = self.data[self.pos];
-        self.start = self.pos;
-        self.pos += 1;
-        self.decode(status)
-      } else {
-        None
-      }
+      None
     }
   }
 }
@@ -443,6 +444,7 @@ mod tests {
   }
 
   #[test]
+  #[allow(clippy::inconsistent_digit_grouping)]
   fn decode_mtc_quarter_frame() {
     let data = &vec![0b1111_0001u8, 0b0_101_1010];
     let mut dec = Decoder::new(data);
@@ -474,7 +476,7 @@ mod tests {
       dec.next(),
       Some(
         Message::SongPositionPointer {
-          beats: 0b01010101010101
+          beats: 0b01_0101_0101_0101
         }
         .into()
       )
@@ -483,7 +485,7 @@ mod tests {
       dec.next(),
       Some(
         Message::SongPositionPointer {
-          beats: 0b10101010101010
+          beats: 0b10_1010_1010_1010
         }
         .into()
       )
@@ -497,7 +499,7 @@ mod tests {
     let mut dec = Decoder::new(data);
     assert_eq!(
       dec.next(),
-      Some(Message::SongSelect { song: 0b1010101 }.into())
+      Some(Message::SongSelect { song: 0b101_0101 }.into())
     );
     assert_eq!(dec.next(), None);
   }

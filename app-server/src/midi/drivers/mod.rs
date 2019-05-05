@@ -11,7 +11,7 @@ pub use self::coremidi::ID as CORE_MIDI_ID;
 const DEFAULT_ID: &'static str = PORT_MIDI_ID;
 
 #[cfg(target_os = "macos")]
-const DEFAULT_ID: &'static str = CORE_MIDI_ID;
+const DEFAULT_ID: &str = CORE_MIDI_ID;
 
 use std::collections::HashMap;
 
@@ -71,6 +71,7 @@ impl MidiDrivers {
     drivers.insert(portmidi::ID.to_string(), portmidi_factory);
   }
 
+  #[allow(dead_code)]
   pub fn drivers(&self) -> Vec<&String> {
     self.drivers.keys().collect()
   }
@@ -85,7 +86,7 @@ impl MidiDrivers {
       .drivers
       .get(&id)
       .map(|driver_factory| driver_factory(app_name.into()))
-      .unwrap_or(Err(MidiError::DriverNotFound { id }))
+      .unwrap_or_else(|| Err(MidiError::DriverNotFound { id }))
   }
 
   pub fn default<T>(&self, app_name: T) -> MidiResult<Box<dyn MidiDriver>>
@@ -106,13 +107,13 @@ pub trait MidiDriver {
 }
 
 pub trait MidiEndpoint {
-  fn name(&self) -> String;
+  fn name(&self) -> &str;
 }
 
 pub trait MidiDestination: MidiEndpoint {
   fn open(&self) -> MidiResult<Box<dyn MidiOutput>>;
 }
 
-pub trait MidiOutput {
+pub trait MidiOutput: MidiEndpoint {
   fn send(&mut self, base_time: ClockTime, buffer: &Buffer);
 }
