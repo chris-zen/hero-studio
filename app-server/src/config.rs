@@ -9,7 +9,6 @@ use std::io::Read;
 #[serde(default)]
 #[derive(Deserialize, Debug, Clone)]
 pub struct Config {
-  pub audio: Audio,
   pub midi: Midi,
   pub websocket: WebSocket,
 }
@@ -17,7 +16,6 @@ pub struct Config {
 impl Default for Config {
   fn default() -> Config {
     Config {
-      audio: Audio::default(),
       midi: Midi::default(),
       websocket: WebSocket::default(),
     }
@@ -48,33 +46,9 @@ impl Config {
 }
 
 #[derive(Deserialize, Debug, Clone)]
-pub struct Pool {
-  pub pool_capacity: usize,
-}
-
-#[derive(Deserialize, Debug, Clone)]
 pub struct PoolWithItemCapacity {
   pub pool_capacity: usize,
   pub item_capacity: usize,
-}
-
-#[serde(default)]
-#[derive(Deserialize, Debug, Clone)]
-pub struct Audio {
-  pub buffer_pool: PoolWithItemCapacity,
-  pub protocol_pool: Pool,
-}
-
-impl Default for Audio {
-  fn default() -> Audio {
-    Audio {
-      buffer_pool: PoolWithItemCapacity {
-        pool_capacity: 4,
-        item_capacity: 4096,
-      },
-      protocol_pool: Pool { pool_capacity: 4 },
-    }
-  }
 }
 
 #[serde(default)]
@@ -92,7 +66,7 @@ impl Default for Midi {
         item_capacity: 1024,
       },
       io_vec_pool: PoolWithItemCapacity {
-        pool_capacity: 4,
+        pool_capacity: 128,
         item_capacity: 1024,
       },
     }
