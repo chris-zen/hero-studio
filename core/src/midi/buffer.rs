@@ -2,6 +2,22 @@ use crate::midi::messages::Message;
 use crate::pool::Pool;
 use crate::time::ClockTime;
 
+pub struct EventIo {
+  pub timestamp: ClockTime,
+  pub endpoint: Endpoint,
+  pub message: Message,
+}
+
+impl EventIo {
+  pub fn new(timestamp: ClockTime, endpoint: Endpoint, message: Message) -> Self {
+    EventIo {
+      timestamp,
+      endpoint,
+      message,
+    }
+  }
+}
+
 pub struct Event {
   pub timestamp: ClockTime,
   pub message: Message,

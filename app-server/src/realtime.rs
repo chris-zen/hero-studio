@@ -1,3 +1,7 @@
+use std::thread;
+
+use log::{debug, warn};
+
 #[cfg(target_os = "macos")]
 use audio_thread_priority::{
   demote_current_thread_from_real_time, promote_current_thread_to_real_time, RtPriorityHandle,
@@ -33,7 +37,22 @@ pub struct RealTimeAudioPriority {
 
 impl RealTimeAudioPriority {
   pub fn promote(sample_rate: u32, buffer_size: u32) -> Result<RealTimeAudioPriority> {
-    Self::promote_rt(sample_rate, buffer_size)
+    let current_thread = thread::current();
+    let thread_name = current_thread.name().unwrap_or("unknown");
+
+    match Self::promote_rt(sample_rate, buffer_size) {
+      Ok(priority) => {
+        debug!("Thread {} has now real-time priority", thread_name);
+        Ok(priority)
+      }
+      Err(err) => {
+        warn!(
+          "Couldn't promote the thread {} into real time: {:?}",
+          thread_name, err
+        );
+        Err(err)
+      }
+    }
   }
 
   #[cfg(any(target_os = "macos", target_os = "windows"))]

@@ -4,19 +4,18 @@ use std::thread::JoinHandle;
 
 use failure::Fail;
 
-use log::{debug, error, info, warn};
+use log::{debug, error, info};
 
 use crossbeam_channel::{Receiver, Sender};
-use hero_studio_core::midi;
 use hero_studio_core::time::ClockTime;
 
 use hero_studio_core::config::{Audio as AudioConfig, Midi as MidiConfig};
-use hero_studio_core::midi::buffer::Endpoint;
+use hero_studio_core::midi::buffer::{Buffer, Endpoint, EventIo};
 
+use crate::controller::Protocol as StudioProtocol;
 use crate::midi::drivers::{MidiDriver, MidiDrivers, MidiOutput as MidiOutputPort};
 use crate::midi::endpoints::{EndpointId, Endpoints};
-use crate::realtime_thread::RealTimeAudioPriority;
-use crate::studio_workers::Protocol as StudioProtocol;
+use crate::realtime::RealTimeAudioPriority;
 
 #[derive(Debug, Fail)]
 pub enum MidiIoError {
@@ -30,35 +29,33 @@ pub enum MidiIoError {
 pub enum Protocol {
   Stop,
 
-  Output {
-    time: ClockTime,
-    buffer_io_vec: Box<midi::BufferIoVec>,
-  },
+  Event(EventIo),
 }
 
-pub struct MidiOutputThread {
+pub struct MidiIoThread {
   _driver: Box<dyn MidiDriver>,
-  endpoints: Endpoints<MidiOutputPort>,
-  studio_tx: Sender<StudioProtocol>,
+  endpoints_out: Endpoints<MidiOutputPort>,
+  buffer: Option<Buffer>,
   _rta_priority: Option<RealTimeAudioPriority>,
 }
 
-impl MidiOutputThread {
+impl MidiIoThread {
   pub fn new(
     config: &MidiConfig,
     audio_config: &AudioConfig,
     studio_tx: Sender<StudioProtocol>,
-  ) -> MidiOutputThread {
+  ) -> MidiIoThread {
     let (driver, endpoints) = Self::init_endpoints(config);
 
-    drop(studio_tx.send(StudioProtocol::MidiOutputInitialised));
+    drop(studio_tx.send(StudioProtocol::MidiInitialised));
 
-    let _rta_priority = Self::promote_to_real_time(audio_config);
+    let _rta_priority =
+      RealTimeAudioPriority::promote(audio_config.sample_rate, audio_config.frames.into()).ok();
 
-    MidiOutputThread {
+    MidiIoThread {
       _driver: driver,
-      endpoints,
-      studio_tx,
+      endpoints_out: endpoints,
+      buffer: Some(Buffer::with_capacity(1)),
       _rta_priority,
     }
   }
@@ -73,68 +70,67 @@ impl MidiOutputThread {
           break;
         }
 
-        Protocol::Output {
-          time,
-          buffer_io_vec,
-        } => {
-          self.send_buffer_io_vec(time, &buffer_io_vec);
-          drop(
-            self
-              .studio_tx
-              .send(StudioProtocol::MidiReleased(buffer_io_vec)),
-          );
+        Protocol::Event(event) => {
+          self.send_event(event);
         }
       }
     }
   }
 
-  fn send_buffer_io_vec(&mut self, base_time: ClockTime, buffer_io_vec: &[midi::BufferIo]) {
-    for buffer_io in buffer_io_vec.iter() {
-      if let Some(buffer) = &buffer_io.buffer {
-        match buffer_io.endpoint {
-          Endpoint::None => {}
-          Endpoint::Default => {
-            if let Some(endpoint) = self.endpoints.get_mut(0) {
-              endpoint.send(base_time, buffer)
-            }
-          }
-          Endpoint::All => self
-            .endpoints
-            .iter_mut()
-            .for_each(|endpoint| endpoint.send(base_time, buffer)),
-          Endpoint::Id(id) => {
-            if let Some(endpoint) = self.endpoints.get_mut(id) {
-              endpoint.send(base_time, buffer)
-            }
-          }
+  // FIXME Temporal solution until we can use crossbeam spsc array and read on chunks rather than individual events
+  fn send_event(&mut self, event: EventIo) {
+    let mut buffer = self.buffer.take().unwrap();
+
+    buffer.reset().push(event.timestamp, event.message);
+
+    match event.endpoint {
+      Endpoint::None => {}
+
+      Endpoint::Default => {
+        if let Some(endpoint) = self.endpoints_out.get_mut(0) {
+          endpoint.send(ClockTime::zero(), &buffer)
+        }
+      }
+
+      Endpoint::All => self
+        .endpoints_out
+        .iter_mut()
+        .for_each(|endpoint| endpoint.send(ClockTime::zero(), &buffer)),
+
+      Endpoint::Id(id) => {
+        if let Some(endpoint) = self.endpoints_out.get_mut(id) {
+          endpoint.send(ClockTime::zero(), &buffer)
         }
       }
     }
+
+    self.buffer = Some(buffer);
   }
 
-  fn update_endpoints(
+  // TODO This logic should go into another thread that will scan ports regularly and report back to this one
+  fn update_endpoints_out(
     _config: &MidiConfig,
     driver: &MidiDriver,
-    endpoints: &mut Endpoints<MidiOutputPort>,
+    endpoints_out: &mut Endpoints<MidiOutputPort>,
   ) {
-    let mut unvisited: HashSet<EndpointId> = endpoints.ids().cloned().collect();
+    let mut unvisited: HashSet<EndpointId> = endpoints_out.ids().cloned().collect();
 
     // TODO send the updates to the studio worker
 
-    debug!("Updating endpoints:");
+    debug!("Updating output endpoints:");
     for destination in driver.destinations() {
       let name = destination.name();
-      if let Some(id) = endpoints.get_id_from_name(&name) {
+      if let Some(id) = endpoints_out.get_id_from_name(&name) {
         unvisited.remove(&id);
         debug!("(=) {} [{}]", name, id);
       } else if let Ok(endpoint) = destination.open() {
-        let id = endpoints.add(name, endpoint);
+        let id = endpoints_out.add(name, endpoint);
         debug!("(+) {} [{}]", name, id);
       } else {
         error!("Error opening MIDI output port: {}", name);
       }
     }
-    endpoints.remove(unvisited, |name, id| debug!("(-) {} [{}]", name, id));
+    endpoints_out.remove(unvisited, |name, id| debug!("(-) {} [{}]", name, id));
   }
 
   fn init_endpoints(config: &MidiConfig) -> (Box<dyn MidiDriver>, Endpoints<MidiOutputPort>) {
@@ -151,37 +147,22 @@ impl MidiOutputThread {
 
     let mut endpoints = Endpoints::new();
 
-    Self::update_endpoints(config, driver.as_ref(), &mut endpoints);
+    Self::update_endpoints_out(config, driver.as_ref(), &mut endpoints);
 
     (driver, endpoints)
   }
-
-  fn promote_to_real_time(audio_config: &AudioConfig) -> Option<RealTimeAudioPriority> {
-    match RealTimeAudioPriority::promote(audio_config.sample_rate, audio_config.frames.into()) {
-      Ok(_rta_priority) => {
-        debug!("Midi Output thread has now real-time priority");
-        Some(_rta_priority)
-      }
-      Err(err) => {
-        warn!(
-          "Couldn't promote the Midi Output thread into real time: {:?}",
-          err
-        );
-        None
-      }
-    }
-  }
 }
 
-pub struct MidiOutput {
+pub struct MidiIo {
   handler: JoinHandle<()>,
   protocol_tx: Sender<Protocol>,
 }
 
-impl MidiOutput {
+impl MidiIo {
+  // TODO Use an spsc array when published by crossbeam
+  pub const CHANNEL_CAPACITY: usize = 128 * 1024;
   pub fn new_channel() -> (Sender<Protocol>, Receiver<Protocol>) {
-    // FIXME use bounded channels !!!
-    crossbeam_channel::unbounded::<Protocol>()
+    crossbeam_channel::bounded::<Protocol>(Self::CHANNEL_CAPACITY)
   }
 
   pub fn new(
@@ -190,29 +171,29 @@ impl MidiOutput {
     protocol_tx: Sender<Protocol>,
     protocol_rx: Receiver<Protocol>,
     studio_tx: Sender<StudioProtocol>,
-  ) -> Result<MidiOutput, MidiIoError> {
-    info!("Spawning MIDI output thread ...");
+  ) -> Result<MidiIo, MidiIoError> {
+    info!("Spawning MIDI IO thread ...");
 
     let cloned_config = config.clone();
     let cloned_audio_config = audio_config.clone();
 
     thread::Builder::new()
-      .name("midi-output".into())
+      .name("midi-io".into())
       .spawn(move || {
-        MidiOutputThread::new(&cloned_config, &cloned_audio_config, studio_tx)
+        MidiIoThread::new(&cloned_config, &cloned_audio_config, studio_tx)
           .handle_messages(protocol_rx)
       })
       .map_err(|err| MidiIoError::Start {
         cause: err.to_string(),
       })
-      .map(|handler| MidiOutput {
+      .map(|handler| MidiIo {
         handler,
         protocol_tx,
       })
   }
 
   pub fn stop(self) -> Result<(), MidiIoError> {
-    info!("Stopping MIDI output thread ...");
+    info!("Stopping MIDI IO thread ...");
 
     self
       .protocol_tx
