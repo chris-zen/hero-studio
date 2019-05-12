@@ -7,29 +7,27 @@ use failure::{Error, Fail};
 
 use crossbeam_channel::{Receiver, Sender};
 
-use hero_studio_core::{
-  config::Audio as AudioConfig, config::Config as StudioConfig, studio::Studio, time::BarsTime,
-};
+use hero_studio_core::{config::Config as StudioConfig, studio::Studio, time::BarsTime};
 
 mod config;
 use crate::config::Config as AppConfig;
 
 mod midi;
-use crate::midi::output::{MidiOutput, Protocol as MidiOutputProtocol};
+use crate::midi::io::{MidiIo, Protocol as MidiOutputProtocol};
 
 mod audio;
+use crate::audio::callback::{AudioCallback, Protocol as AudioProtocol};
 use crate::audio::drivers::portaudio::{PortAudioDriver, PortAudioStream};
-use crate::audio::io::{AudioIo, Protocol as AudioProtocol};
 
-mod studio_workers;
-use crate::studio_workers::{Protocol as StudioProtocol, StudioWorkers};
+mod controller;
+use crate::controller::{Controller, Protocol as ControllerProtocol};
 
 mod server;
-use crate::server::Server;
+use crate::server::{Message as ServerMessage, Server};
 
 //mod events;
 
-mod realtime_thread;
+mod realtime;
 
 //const APP_NAME: &'static str = "Hero Studio";
 
@@ -58,54 +56,51 @@ fn main() -> Result<(), Error> {
   let midi_config = &studio_config.midi;
   let audio_config = &studio_config.audio;
 
-  let (studio_tx, studio_rx) = StudioWorkers::new_channel();
+  let (server_tx, server_rx) = Server::new_channel();
+  let (ctrl_tx, ctrl_rx) = Controller::new_channel();
   let (audio_tx, audio_rx) = PortAudioStream::new_channel();
-  let (midi_out_tx, midi_out_rx) = MidiOutput::new_channel();
+  let (midi_tx, midi_rx) = MidiIo::new_channel();
 
-  let midi_output = MidiOutput::new(
+  let midi_output = MidiIo::new(
     midi_config,
     audio_config,
-    midi_out_tx.clone(),
-    midi_out_rx.clone(),
-    studio_tx.clone(),
-  )?;
-
-  //  info!("Waiting for MIDI output to initialise ...");
-  //  drop(studio_rx.recv());
-
-  let (_audio_driver, mut stream) = init_audio(
-    audio_config,
-    audio_rx.clone(),
-    studio_tx.clone(),
-    midi_out_tx.clone(),
+    midi_tx.clone(),
+    midi_rx.clone(),
+    ctrl_tx.clone(),
   )?;
 
   let studio = init_studio(studio_config)?;
-  let studio_workers = StudioWorkers::new(
-    studio,
-    app_config,
-    studio_tx.clone(),
-    studio_rx.clone(),
+
+  let (_audio_driver, mut stream) = init_audio(studio, audio_rx.clone(), midi_tx.clone())?;
+
+  let controller = Controller::new(
+    ctrl_tx.clone(),
+    ctrl_rx.clone(),
     audio_tx.clone(),
-    midi_out_tx.clone(),
-    stream.num_input_channels(),
-    stream.num_output_channels(),
+    midi_tx.clone(),
   )?;
 
-  let server = init_server(websocket_port)?;
+  let server = init_server(
+    websocket_port,
+    server_tx.clone(),
+    server_rx.clone(),
+    ctrl_tx.clone(),
+  )?;
 
-  drop(studio_tx);
-  drop(studio_rx);
+  drop(server_tx);
+  drop(server_rx);
+  drop(ctrl_tx);
+  drop(ctrl_rx);
   drop(audio_tx);
   drop(audio_rx);
-  drop(midi_out_tx);
-  drop(midi_out_rx);
+  drop(midi_tx);
+  drop(midi_rx);
 
   stream.wait();
 
   server.close();
 
-  studio_workers.stop()?;
+  controller.stop()?;
 
   stream.stop()?;
   stream.close()?;
@@ -162,33 +157,31 @@ fn init_studio(config: StudioConfig) -> Result<Studio, Error> {
 }
 
 fn init_audio(
-  audio_config: &AudioConfig,
+  studio: Studio,
   audio_rx: Receiver<AudioProtocol>,
-  studio_tx: Sender<StudioProtocol>,
   midi_output_tx: Sender<MidiOutputProtocol>,
 ) -> Result<(Rc<PortAudioDriver>, PortAudioStream), Error> {
   info!("Initialising audio ...");
 
+  let audio_config = &studio.config().audio.clone();
+
   let driver = PortAudioDriver::new().map(Rc::new)?;
-  let audio_io = AudioIo::new(audio_rx, studio_tx, midi_output_tx);
-  let mut stream = PortAudioStream::new(driver.clone(), audio_config, audio_io)?;
+  let audio_callback = AudioCallback::new(studio, audio_rx, midi_output_tx);
+  let mut stream = PortAudioStream::new(driver.clone(), audio_config, audio_callback)?;
   stream.start()?;
 
   Ok((driver, stream))
 }
 
-fn init_server(port: u16) -> Result<Server, Error> {
+fn init_server(
+  port: u16,
+  server_tx: Sender<ServerMessage>,
+  server_rx: Receiver<ServerMessage>,
+  ctrl_tx: Sender<ControllerProtocol>,
+) -> Result<Server, Error> {
   info!("Initialising the websocket server ...");
 
-  let server = Server::new(port)?;
-
-  let receiver = server.receiver();
-
-  std::thread::spawn(move || {
-    for msg in receiver.iter() {
-      debug!("Received {:#?}", msg);
-    }
-  });
+  let server = Server::new(port, server_tx, server_rx, ctrl_tx)?;
 
   // let sender = server.sender();
   // std::thread::spawn(move || {

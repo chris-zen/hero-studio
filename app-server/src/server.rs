@@ -22,6 +22,8 @@ use websocket::server::upgrade::WsUpgrade;
 use websocket::sync::Server as WsServer;
 use websocket::OwnedMessage;
 
+use crate::controller::Protocol as ControllerProtocol;
+
 #[derive(Debug, Fail)]
 enum ServerError {
   #[fail(display = "Unable to accept connection")]
@@ -74,25 +76,30 @@ impl Message {
 type Clients = HashMap<u16, Sender<Message>>;
 
 pub struct Server {
-  server_send_tx: Sender<Message>,
-  server_receive_rx: Receiver<Message>,
+  server_output_tx: Sender<Message>,
   router_thread: JoinHandle<Result<(), Error>>,
   websocket_thread: JoinHandle<Result<(), Error>>,
 }
 
 impl Server {
-  pub fn new(port: u16) -> Result<Server, Error> {
-    let (server_send_tx, server_send_rx) = crossbeam_channel::unbounded::<Message>();
-    let (server_receive_tx, server_receive_rx) = crossbeam_channel::unbounded::<Message>();
+  pub fn new_channel() -> (Sender<Message>, Receiver<Message>) {
+    crossbeam_channel::unbounded::<Message>()
+  }
+
+  pub fn new(
+    port: u16,
+    server_output_tx: Sender<Message>,
+    server_output_rx: Receiver<Message>,
+    controller_tx: Sender<ControllerProtocol>,
+  ) -> Result<Server, Error> {
     let (client_receive_tx, client_receive_rx) = crossbeam_channel::unbounded::<Message>();
 
-    let router_thread = Self::start_router(server_send_rx, client_receive_rx, server_receive_tx);
+    let router_thread = Self::start_router(server_output_rx, client_receive_rx, controller_tx);
 
     let websocket_thread = Self::start_server(client_receive_tx, port);
 
     Ok(Server {
-      server_send_tx,
-      server_receive_rx,
+      server_output_tx,
       router_thread,
       websocket_thread,
     })
@@ -101,7 +108,7 @@ impl Server {
   fn start_router(
     server_send_rx: Receiver<Message>,
     client_receive_rx: Receiver<Message>,
-    server_receive_tx: Sender<Message>,
+    controller_tx: Sender<ControllerProtocol>,
   ) -> JoinHandle<Result<(), Error>> {
     thread::Builder::new()
       .name("ws-router".into())
@@ -123,7 +130,7 @@ impl Server {
               let is_stop = msg.is_stop();
               drop(Self::dispatch_message(
                 &mut clients,
-                server_receive_tx.clone(),
+                controller_tx.clone(),
                 msg,
               ));
               if is_stop {
@@ -143,7 +150,7 @@ impl Server {
 
   fn dispatch_message(
     clients: &mut Clients,
-    server_receive_tx: Sender<Message>,
+    controller_tx: Sender<ControllerProtocol>,
     msg: Message,
   ) -> Result<(), Error> {
     // TODO Can we avoid the msg.clone() ?
@@ -158,7 +165,7 @@ impl Server {
       }
 
       Message::Incoming { .. } => {
-        drop(server_receive_tx.send(msg));
+        drop(controller_tx.send(ControllerProtocol::ServerInput(msg)));
       }
       Message::Outgoing { port, .. } => {
         if port == ALL_PORTS {
@@ -211,11 +218,11 @@ impl Server {
           Self::ensure_valid_source_or_close(&mut client).and_then(|addr| {
             info!("New WebSocket connection: {}", addr.to_string());
             client
-              .split()
-              .map_err(|err| ServerError::ClientSplit {
-                cause: err.to_string(),
-              })
-              .map(|(receiver, sender)| (addr, receiver, sender))
+                .split()
+                .map_err(|err| ServerError::ClientSplit {
+                  cause: err.to_string(),
+                })
+                .map(|(receiver, sender)| (addr, receiver, sender))
           })
         })?;
 
@@ -336,18 +343,14 @@ impl Server {
       })
   }
 
-  pub fn receiver(&self) -> Receiver<Message> {
-    self.server_receive_rx.clone()
-  }
-
-  //  pub fn sender(&self) -> Sender<Message> {
-  //    self.server_send_tx.clone()
-  //  }
-
   pub fn close(self) {
     info!("Closing server ...");
 
-    drop(self.server_send_tx.send(Message::Close { port: ALL_PORTS }));
+    drop(
+      self
+        .server_output_tx
+        .send(Message::Close { port: ALL_PORTS }),
+    );
     // TODO figure out how to stop the websocket thread
     drop(self.websocket_thread.join());
   }

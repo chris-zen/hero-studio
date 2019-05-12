@@ -3,7 +3,8 @@ use std::rc::Rc;
 
 use crate::config::{Metronome as MetronomeConfig, MetronomeNote, MidiPort};
 use crate::midi;
-use crate::midi::buffer::Endpoint;
+use crate::midi::buffer::{Endpoint, EventIo};
+use crate::midi::io::MidiOutput;
 use crate::time::{
   ticks::TICKS_RESOLUTION, BarsTime, ClockTime, SampleRate, Signature, Tempo, TicksTime,
 };
@@ -44,7 +45,10 @@ impl Metronome {
     self.endpoint
   }
 
-  pub fn process_segment(&mut self, segment: &Segment, buffer: &mut midi::Buffer) {
+  pub fn process_segment<MidiOut>(&mut self, segment: &Segment, midi_output: &mut MidiOut)
+  where
+    MidiOut: MidiOutput,
+  {
     if self.enabled {
       let signature = segment.signature;
       let tempo = segment.tempo;
@@ -59,46 +63,66 @@ impl Metronome {
         if next_beat_position == next_bar_position {
           // println!("Metronome: |> {:?}", bars_time);
           let note = &self.config.bar_note;
-          Self::push_note(buffer, note_time, note, signature, tempo);
+          Self::push_note(
+            midi_output,
+            self.endpoint,
+            note_time,
+            note,
+            signature,
+            tempo,
+          );
           next_bar_position += self.bar_duration;
         } else {
           // println!("Metronome: ~> {:?}", bars_time);
           let note = &self.config.beat_note;
-          Self::push_note(buffer, note_time, note, signature, tempo);
+          Self::push_note(
+            midi_output,
+            self.endpoint,
+            note_time,
+            note,
+            signature,
+            tempo,
+          );
         }
         next_beat_position += self.beat_duration;
       }
     }
   }
 
-  fn push_note(
-    buffer: &mut midi::Buffer,
+  fn push_note<MidiOut>(
+    midi_output: &mut MidiOut,
+    endpoint: Endpoint,
     start_time: ClockTime,
     note: &MetronomeNote,
     signature: Signature,
     tempo: Tempo,
-  ) {
+  ) where
+    MidiOut: MidiOutput,
+  {
     // TODO duration_ticks only needs to be calculated once per note
     let duration_ticks = TicksTime::new(16 * TICKS_RESOLUTION / u64::from(note.duration));
     let duration_time = duration_ticks.to_clock(signature, tempo);
     let end_time = start_time + duration_time;
 
-    buffer.push(
+    midi_output.push(EventIo::new(
       start_time,
+      endpoint,
       midi::Message::NoteOn {
         channel: note.channel,
         key: note.key,
         velocity: note.velocity,
       },
-    );
-    buffer.push(
+    ));
+
+    midi_output.push(EventIo::new(
       end_time,
+      endpoint,
       midi::Message::NoteOff {
         channel: note.channel,
         key: note.key,
         velocity: note.velocity,
       },
-    );
+    ));
   }
 
   fn bar_and_beat_duration(signature: Signature) -> (TicksTime, TicksTime) {
