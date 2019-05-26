@@ -79,7 +79,7 @@ impl PortAudioStream {
   pub fn new(
     driver: Rc<PortAudioDriver>,
     config: &AudioConfig,
-    mut audio_io: AudioCallback,
+    mut audio_callback: AudioCallback,
   ) -> AudioResult<PortAudioStream> {
     info!("Creating an audio stream ...");
 
@@ -126,7 +126,7 @@ impl PortAudioStream {
     let callback = move |args| {
       Self::callback(
         args,
-        &mut audio_io,
+        &mut audio_callback,
         num_input_channels as usize,
         num_output_channels as usize,
         starting,
@@ -140,7 +140,7 @@ impl PortAudioStream {
 
   fn callback(
     args: DuplexStreamCallbackArgs<f32, f32>,
-    audio_io: &mut AudioCallback,
+    audio_callback: &mut AudioCallback,
     in_channels: usize,
     out_channels: usize,
     starting: bool,
@@ -153,13 +153,13 @@ impl PortAudioStream {
       flags,
     } = args;
 
-    Self::detect_and_report_xrun(starting, time.out_buffer_dac, flags);
+    Self::detect_and_report_xruns(starting, time.out_buffer_dac, flags);
 
     let in_time = ClockTime::from_seconds(time.in_buffer_adc);
     let out_time = ClockTime::from_seconds(time.out_buffer_dac);
     let audio_input = AudioInput::new(in_time, in_channels, in_buffer);
     let audio_output = AudioOutput::new(out_time, out_channels, out_buffer);
-    match audio_io.process(frames, audio_input, audio_output) {
+    match audio_callback.process(frames, audio_input, audio_output) {
       Ok(AudioCallbackResult::Continue) => portaudio::Continue,
       Ok(AudioCallbackResult::Stop) => portaudio::Complete,
       Err(_err) => {
@@ -191,7 +191,7 @@ impl PortAudioStream {
     self.stream.close().map_err(Into::into)
   }
 
-  fn detect_and_report_xrun(mut starting: bool, output_time: f64, flags: CallbackFlags) {
+  fn detect_and_report_xruns(mut starting: bool, output_time: f64, flags: CallbackFlags) {
     if starting && flags != callback_flags::INPUT_UNDERFLOW {
       starting = false;
     }
