@@ -68,9 +68,11 @@ cargo test
 - [x] core: Implement a basic metronome using MIDI notes
 - [x] core: Management of time and sync between different clocks: Audio, Midi, Host, Ticks
 - [x] app-server: Build MIDI output abstraction to send MIDI events to a device using CoreMIDI & PortMIDI as an initial impl
-- [ ] app-server: Explore ways to avoid locks and allocations from the real-time processing threads (in progress)
+- [x] app-server: Explore ways to avoid locks and allocations from the real-time processing threads
+- [ ] core: Implement an audio based metronome and investigate the MIDI metronome drift.
 - [ ] app-server: Add MIDI input support
 - [ ] app-server: Add VST plugins support
+- [ ] rethink the project submodules into something like (ui-electron, server and engine)
+- [ ] Start exploring UI integrations (some progress already done with Electron, but would like to test Qt too)
 - [ ] core: Filling MIDI output buffers from the Song clips (initially choose one type of clip between pianoroll, step-sequencer, drum-box).
-- [ ] Start exploring UI integrations (some progress already done with Electron)
 - [ ] ...
