@@ -17,6 +17,7 @@ use crate::midi::drivers::{MidiDriver, MidiDrivers, MidiOutput as MidiOutputPort
 use crate::midi::endpoints::{EndpointId, Endpoints};
 use crate::realtime::RealTimeAudioPriority;
 
+
 #[derive(Debug, Fail)]
 pub enum MidiIoError {
   #[fail(display = "Failed to create the MIDI output thread: {}", cause)]
@@ -65,13 +66,13 @@ impl MidiIoThread {
 
     for message in protocol_rx.iter() {
       match message {
+        Protocol::Event(event) => {
+          self.send_event(event);
+        }
+
         Protocol::Stop => {
           info!("MIDI output thread stopped ...");
           break;
-        }
-
-        Protocol::Event(event) => {
-          self.send_event(event);
         }
       }
     }

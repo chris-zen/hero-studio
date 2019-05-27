@@ -7,7 +7,8 @@ use hero_studio_core::midi::buffer::EventIo;
 use hero_studio_core::midi::io::{MidiInput, MidiOutput};
 use hero_studio_core::studio::Studio;
 
-use crate::midi::io::Protocol as MidiOutputProtocol;
+use crate::midi::io::Protocol as MidiIoProtocol;
+
 
 #[derive(Debug, Fail)]
 pub enum CallbackError {
@@ -36,18 +37,19 @@ impl ReceiverMidiInput {
 impl MidiInput for ReceiverMidiInput {}
 
 struct SenderMidiOutput {
-  tx: Sender<MidiOutputProtocol>,
+  tx: Sender<MidiIoProtocol>,
 }
 
 impl SenderMidiOutput {
-  fn new(tx: Sender<MidiOutputProtocol>) -> Self {
+  fn new(tx: Sender<MidiIoProtocol>) -> Self {
     SenderMidiOutput { tx }
   }
 }
 
 impl MidiOutput for SenderMidiOutput {
   fn push(&mut self, event: EventIo) {
-    drop(self.tx.send(MidiOutputProtocol::Event(event)))
+    let msg = MidiIoProtocol::Event(event);
+    drop(self.tx.send(msg))
   }
 }
 
@@ -67,7 +69,7 @@ impl AudioCallback {
   pub fn new(
     studio: Studio,
     protocol_rx: Receiver<Protocol>,
-    midi_out_tx: Sender<MidiOutputProtocol>,
+    midi_out_tx: Sender<MidiIoProtocol>,
   ) -> AudioCallback {
     AudioCallback {
       studio,
