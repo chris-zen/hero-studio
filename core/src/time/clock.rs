@@ -30,12 +30,12 @@ impl ClockTime {
   }
 
   pub fn from_nanos(nanos: u64) -> ClockTime {
-    debug_assert!(UNITS_PER_NANO > 0);
+    debug_assert!(UNITS_PER_NANO != 0);
     ClockTime(nanos * UNITS_PER_NANO)
   }
 
   pub fn from_millis(nanos: u64) -> ClockTime {
-    debug_assert!(UNITS_PER_MILLI > 0);
+    debug_assert!(UNITS_PER_MILLI != 0);
     ClockTime(nanos * UNITS_PER_MILLI)
   }
 
