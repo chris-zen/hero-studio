@@ -1,5 +1,4 @@
 use crossbeam_channel::{Receiver, Sender};
-
 use failure::Fail;
 
 use hero_studio_core::audio::{AudioInput, AudioOutput};
@@ -8,7 +7,6 @@ use hero_studio_core::midi::io::{MidiInput, MidiOutput};
 use hero_studio_core::studio::Studio;
 
 use crate::midi::io::Protocol as MidiIoProtocol;
-
 
 #[derive(Debug, Fail)]
 pub enum CallbackError {
@@ -26,15 +24,24 @@ pub enum Protocol {
   Stop,
 }
 
-struct ReceiverMidiInput {}
+struct ReceiverMidiInput {
+  rx: Receiver<MidiIoProtocol>
+}
 
 impl ReceiverMidiInput {
-  fn new() -> Self {
-    ReceiverMidiInput {}
+  fn new(rx: Receiver<MidiIoProtocol>) -> Self {
+    ReceiverMidiInput { rx }
   }
 }
 
-impl MidiInput for ReceiverMidiInput {}
+impl MidiInput for ReceiverMidiInput {
+  fn pop(&mut self) -> Option<EventIo> {
+    self.rx.try_recv().ok().and_then(|message| match message {
+      MidiIoProtocol::EventIn(event_io) => Some(event_io),
+      _ => None
+    })
+  }
+}
 
 struct SenderMidiOutput {
   tx: Sender<MidiIoProtocol>,
@@ -48,7 +55,7 @@ impl SenderMidiOutput {
 
 impl MidiOutput for SenderMidiOutput {
   fn push(&mut self, event: EventIo) {
-    let msg = MidiIoProtocol::Event(event);
+    let msg = MidiIoProtocol::EventOut(event);
     drop(self.tx.send(msg))
   }
 }
@@ -70,11 +77,12 @@ impl AudioCallback {
     studio: Studio,
     protocol_rx: Receiver<Protocol>,
     midi_out_tx: Sender<MidiIoProtocol>,
+    midi_in_rx: Receiver<MidiIoProtocol>,
   ) -> AudioCallback {
     AudioCallback {
       studio,
       protocol_rx,
-      midi_input: ReceiverMidiInput::new(),
+      midi_input: ReceiverMidiInput::new(midi_in_rx),
       midi_output: SenderMidiOutput::new(midi_out_tx),
     }
   }
@@ -92,7 +100,7 @@ impl AudioCallback {
       frames,
       &audio_input,
       &mut audio_output,
-      &self.midi_input,
+      &mut self.midi_input,
       &mut self.midi_output,
     );
 

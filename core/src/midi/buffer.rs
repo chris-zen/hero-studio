@@ -2,6 +2,7 @@ use crate::midi::messages::Message;
 use crate::pool::Pool;
 use crate::time::ClockTime;
 
+#[derive(Debug)]
 pub struct EventIo {
   pub timestamp: ClockTime,
   pub endpoint: Endpoint,
@@ -66,7 +67,7 @@ pub fn new_buffer_pool(pool_capacity: usize, buffer_capacity: usize) -> Pool<Buf
   Pool::new(pool_capacity, allocator, reset)
 }
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub enum Endpoint {
   None,
   Default,

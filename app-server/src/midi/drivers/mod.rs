@@ -11,7 +11,7 @@ pub use self::coremidi::ID as CORE_MIDI_ID;
 const DEFAULT_ID: &'static str = PORT_MIDI_ID;
 
 #[cfg(target_os = "macos")]
-const DEFAULT_ID: &str = CORE_MIDI_ID;
+const DEFAULT_ID: &'static str = CORE_MIDI_ID;
 
 use std::collections::HashMap;
 
@@ -30,8 +30,9 @@ pub enum MidiError {
 
   #[fail(display = "Failed to open a destination: {}", cause)]
   DestinationOpen { cause: String },
-  // #[fail(display = "Failed to open a source: {}", cause)]
-  // SourceOpen { cause: String },
+
+   #[fail(display = "Failed to open a source: {}", cause)]
+   SourceOpen { cause: String },
 }
 
 pub type MidiResult<T> = Result<T, MidiError>;
@@ -100,20 +101,31 @@ impl MidiDrivers {
 pub trait MidiDriver {
   fn id(&self) -> &str;
 
-  // fn sources(&self) -> Vec<Box<dyn MidiSource>>;
+  fn sources(&self) -> Vec<Box<dyn MidiSource>>;
   fn destinations(&self) -> Vec<Box<dyn MidiDestination>>;
 
   // fn create_virtual_output<T>(&self, name: T) -> dyn MidiOutput where T: Into<String>;
+}
+
+pub trait MidiDestination {
+  fn name(&self) -> &str;
+  fn open(&self) -> MidiResult<Box<dyn MidiOutput>>;
+}
+
+pub type MidiSourceCallback = Fn(&Buffer) + Send + 'static;
+
+pub trait MidiSource {
+  fn name(&self) -> &str;
+  fn open(&self, callback: Box<MidiSourceCallback>) -> MidiResult<Box<dyn MidiInput>>;
 }
 
 pub trait MidiEndpoint {
   fn name(&self) -> &str;
 }
 
-pub trait MidiDestination: MidiEndpoint {
-  fn open(&self) -> MidiResult<Box<dyn MidiOutput>>;
-}
-
 pub trait MidiOutput: MidiEndpoint {
   fn send(&mut self, base_time: ClockTime, buffer: &Buffer);
+}
+
+pub trait MidiInput: MidiEndpoint {
 }

@@ -12,6 +12,9 @@ use crate::pool::Pool;
 use crate::song::Song;
 use crate::time::{BarsTime, ClockTime};
 use crate::transport::{Segment, Transport};
+use crate::midi::Buffer;
+
+const MIDI_BUFFER_CAPACITY: usize = 256 * 1024;
 
 fn fill_with_zero(s: &mut [f32]) {
   for d in s {
@@ -24,6 +27,7 @@ pub struct Studio {
   transport: Transport,
   metronome: Metronome,
   song: Song,
+  midi_buffer: Vec<EventIo>,
 }
 
 unsafe impl Send for Studio {}
@@ -39,11 +43,14 @@ impl Studio {
     let signature = *transport.get_signature();
     let metronome = Metronome::new(metronome_config, signature);
 
+    let midi_buffer = Vec::with_capacity(MIDI_BUFFER_CAPACITY);
+
     Studio {
       config,
       transport,
       metronome,
       song,
+      midi_buffer,
     }
   }
 
@@ -86,21 +93,26 @@ impl Studio {
     audio_frames: usize,
     _audio_input: &AudioInput,
     audio_output: &mut AudioOutput,
-    _midi_input: &MidiIn,
+    midi_input: &mut MidiIn,
     midi_output: &mut MidiOut,
   ) where
     MidiIn: MidiInput,
     MidiOut: MidiOutput,
   {
+    self.capture_midi_in(midi_input);
+
     if self.transport.is_playing() {
       let master_clock = audio_output.time;
+
       let mut segments = self
         .transport
         .segments_iterator(master_clock, audio_frames as u32);
+
       while let Some(segment) = segments.next(&self.transport) {
         self.metronome.process_segment(&segment, midi_output);
         self.song.process_segment(&segment);
       }
+
       self.transport.update_from_segments(&segments);
 
       fill_with_zero(audio_output.buffer);
@@ -115,6 +127,17 @@ impl Studio {
 //      }
     } else {
       fill_with_zero(audio_output.buffer);
+    }
+  }
+
+  fn capture_midi_in<MidiIn>(&mut self, midi_input: &mut MidiIn) where MidiIn: MidiInput {
+    self.midi_buffer.clear();
+    while let Some(event_io) = midi_input.pop() {
+//      println!("{:?}", event_io);
+      self.midi_buffer.push(event_io);
+      if self.midi_buffer.len() == MIDI_BUFFER_CAPACITY {
+        break;
+      }
     }
   }
 }

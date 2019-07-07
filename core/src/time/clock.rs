@@ -2,6 +2,7 @@ use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 
 use super::{ticks, SampleRate, Signature, Tempo, TicksTime};
 
+pub const MILLIS_PER_SECOND: u64 = 1_000;
 pub const NANOS_PER_SECOND: u64 = 1_000_000_000;
 // pub const PICOS_PER_SECOND: u64 = 1_000_000_000_000;
 // pub const FEMTOS_PER_SECOND: u64 = 1_000_000_000_000_000;
@@ -9,7 +10,8 @@ pub const NANOS_PER_SECOND: u64 = 1_000_000_000;
 
 pub type UnitType = u64;
 pub const UNITS_PER_SECOND: UnitType = NANOS_PER_SECOND as UnitType;
-pub const UNITS_PER_NANO: UnitType = NANOS_PER_SECOND / UNITS_PER_SECOND;
+pub const UNITS_PER_NANO: UnitType = UNITS_PER_SECOND / NANOS_PER_SECOND;
+pub const UNITS_PER_MILLI: UnitType = UNITS_PER_SECOND / MILLIS_PER_SECOND;
 
 const SECONDS_PER_MINUTE: u64 = 60;
 pub const UNITS_PER_MINUTE: u64 = UNITS_PER_SECOND * SECONDS_PER_MINUTE;
@@ -27,6 +29,16 @@ impl ClockTime {
     ClockTime(units)
   }
 
+  pub fn from_nanos(nanos: u64) -> ClockTime {
+    debug_assert!(UNITS_PER_NANO > 0);
+    ClockTime(nanos * UNITS_PER_NANO)
+  }
+
+  pub fn from_millis(nanos: u64) -> ClockTime {
+    debug_assert!(UNITS_PER_MILLI > 0);
+    ClockTime(nanos * UNITS_PER_MILLI)
+  }
+
   pub fn from_seconds(seconds: f64) -> ClockTime {
     ClockTime((seconds * UNITS_PER_SECOND as f64).round() as UnitType)
   }
@@ -39,12 +51,12 @@ impl ClockTime {
     self.0
   }
 
-  pub fn to_nanos(&self) -> u64 {
-    self.0 as u64 / UNITS_PER_NANO
-  }
-
   pub fn to_seconds(&self) -> f64 {
     self.0 as f64 / UNITS_PER_SECOND as f64
+  }
+
+  pub fn to_nanos(&self) -> u64 {
+    self.0 as u64 / UNITS_PER_NANO
   }
 
   pub fn to_ticks(&self, signature: Signature, tempo: Tempo) -> TicksTime {
@@ -122,6 +134,7 @@ impl DivAssign<u32> for ClockTime {
 #[cfg(test)]
 mod test {
   use super::ClockTime;
+  use crate::time::clock::UNITS_PER_SECOND;
 
   #[test]
   pub fn clock_time_new() {
@@ -133,6 +146,24 @@ mod test {
   pub fn clock_time_zero() {
     let time = ClockTime::zero();
     assert_eq!(time.units(), 0);
+  }
+
+  #[test]
+  pub fn clock_time_from_nanos() {
+    let time = ClockTime::from_nanos(15);
+    assert_eq!(time.units(), 15);
+  }
+
+  #[test]
+  pub fn clock_time_from_millis() {
+    let time = ClockTime::from_millis(15);
+    assert_eq!(time.units(), 15_000_000);
+  }
+
+  #[test]
+  pub fn clock_time_from_seconds() {
+    let time = ClockTime::from_seconds(0.5);
+    assert_eq!(time.units(), UNITS_PER_SECOND / 2);
   }
 
   #[test]

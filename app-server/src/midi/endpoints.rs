@@ -24,6 +24,10 @@ where
     }
   }
 
+  pub fn next_id(&self) -> EndpointId {
+    self.next_id
+  }
+
   pub fn ids(&self) -> impl Iterator<Item = &EndpointId> {
     self.endpoints_by_id.keys()
   }

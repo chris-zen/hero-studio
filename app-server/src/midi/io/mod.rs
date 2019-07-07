@@ -13,7 +13,7 @@ use hero_studio_core::config::{Audio as AudioConfig, Midi as MidiConfig};
 use hero_studio_core::midi::buffer::{Buffer, Endpoint, EventIo};
 
 use crate::controller::Protocol as StudioProtocol;
-use crate::midi::drivers::{MidiDriver, MidiDrivers, MidiOutput as MidiOutputPort};
+use crate::midi::drivers::{MidiDriver, MidiDrivers, MidiOutput as MidiOutputPort, MidiInput as MidiInputPort};
 use crate::midi::endpoints::{EndpointId, Endpoints};
 use crate::realtime::RealTimeAudioPriority;
 
@@ -27,15 +27,19 @@ pub enum MidiIoError {
   Stop,
 }
 
+#[derive(Debug)]
 pub enum Protocol {
   Stop,
 
-  Event(EventIo),
+  EventOut(EventIo),
+
+  EventIn(EventIo),
 }
 
 pub struct MidiIoThread {
   _driver: Box<dyn MidiDriver>,
   endpoints_out: Endpoints<MidiOutputPort>,
+  _endpoints_in: Endpoints<MidiInputPort>,
   buffer: Option<Buffer>,
   _rta_priority: Option<RealTimeAudioPriority>,
 }
@@ -44,9 +48,10 @@ impl MidiIoThread {
   pub fn new(
     config: &MidiConfig,
     audio_config: &AudioConfig,
+    midi_in_tx: Sender<Protocol>,
     studio_tx: Sender<StudioProtocol>,
   ) -> MidiIoThread {
-    let (driver, endpoints) = Self::init_endpoints(config);
+    let (driver, endpoints_out, endpoints_in) = Self::init_endpoints(config, midi_in_tx);
 
     drop(studio_tx.send(StudioProtocol::MidiInitialised));
 
@@ -55,7 +60,8 @@ impl MidiIoThread {
 
     MidiIoThread {
       _driver: driver,
-      endpoints_out: endpoints,
+      endpoints_out,
+      _endpoints_in: endpoints_in,
       buffer: Some(Buffer::with_capacity(1)),
       _rta_priority,
     }
@@ -66,7 +72,7 @@ impl MidiIoThread {
 
     for message in protocol_rx.iter() {
       match message {
-        Protocol::Event(event) => {
+        Protocol::EventOut(event) => {
           self.send_event(event);
         }
 
@@ -74,6 +80,8 @@ impl MidiIoThread {
           info!("MIDI output thread stopped ...");
           break;
         }
+
+        _ => unreachable!()
       }
     }
   }
@@ -134,8 +142,49 @@ impl MidiIoThread {
     endpoints_out.remove(unvisited, |name, id| debug!("(-) {} [{}]", name, id));
   }
 
-  fn init_endpoints(config: &MidiConfig) -> (Box<dyn MidiDriver>, Endpoints<MidiOutputPort>) {
-    info!("Initialising MIDI output ...");
+  fn update_endpoints_in(
+    _config: &MidiConfig,
+    driver: &MidiDriver,
+    midi_in_tx: Sender<Protocol>,
+    endpoints_in: &mut Endpoints<MidiInputPort>,
+  ) {
+    let mut unvisited: HashSet<EndpointId> = endpoints_in.ids().cloned().collect();
+
+    // TODO send the updates to the studio worker
+
+    debug!("Updating input endpoints:");
+
+    for source in driver.sources() {
+      let name = source.name();
+      let tx = midi_in_tx.clone();
+
+      if let Some(id) = endpoints_in.get_id_from_name(&name) {
+        unvisited.remove(&id);
+        debug!("(=) {} [{}]", name, id);
+      } else {
+        let id = endpoints_in.next_id();
+
+        let callback = Box::new(move |buffer: &Buffer| {
+          for event in buffer.iter() {
+            let endpoint = Endpoint::Id(id);
+            let event_io = EventIo::new(event.timestamp, endpoint, event.message.clone());
+            drop(tx.send(Protocol::EventIn(event_io)));
+          }
+        });
+
+        if let Ok(endpoint) = source.open(callback) {
+          endpoints_in.add(name, endpoint);
+          debug!("(+) {} [{}]", name, id);
+        } else {
+          error!("Error opening MIDI input port: {}", name);
+        }
+      }
+    }
+    endpoints_in.remove(unvisited, |name, id| debug!("(-) {} [{}]", name, id));
+  }
+
+  fn init_endpoints(config: &MidiConfig, midi_in_tx: Sender<Protocol>) -> (Box<dyn MidiDriver>, Endpoints<MidiOutputPort>, Endpoints<MidiInputPort>) {
+    info!("Initialising MIDI IO ...");
 
     let drivers = MidiDrivers::new();
     let app_name = "hero-studio"; // TODO from app_config ?
@@ -146,17 +195,19 @@ impl MidiIoThread {
 
     debug!("MIDI Driver: {}", driver.id());
 
-    let mut endpoints = Endpoints::new();
+    let mut endpoints_out = Endpoints::new();
+    Self::update_endpoints_out(config, driver.as_ref(), &mut endpoints_out);
 
-    Self::update_endpoints_out(config, driver.as_ref(), &mut endpoints);
+    let mut endpoints_in = Endpoints::new();
+    Self::update_endpoints_in(config, driver.as_ref(), midi_in_tx, &mut endpoints_in);
 
-    (driver, endpoints)
+    (driver, endpoints_out, endpoints_in)
   }
 }
 
 pub struct MidiIo {
   handler: JoinHandle<()>,
-  protocol_tx: Sender<Protocol>,
+  midi_out_tx: Sender<Protocol>,
 }
 
 impl MidiIo {
@@ -169,8 +220,9 @@ impl MidiIo {
   pub fn new(
     config: &MidiConfig,
     audio_config: &AudioConfig,
-    protocol_tx: Sender<Protocol>,
-    protocol_rx: Receiver<Protocol>,
+    midi_out_tx: Sender<Protocol>,
+    midi_out_rx: Receiver<Protocol>,
+    midi_in_tx: Sender<Protocol>,
     studio_tx: Sender<StudioProtocol>,
   ) -> Result<MidiIo, MidiIoError> {
     info!("Spawning MIDI IO thread ...");
@@ -181,15 +233,15 @@ impl MidiIo {
     thread::Builder::new()
       .name("midi-io".into())
       .spawn(move || {
-        MidiIoThread::new(&cloned_config, &cloned_audio_config, studio_tx)
-          .handle_messages(protocol_rx)
+        MidiIoThread::new(&cloned_config, &cloned_audio_config, midi_in_tx, studio_tx)
+          .handle_messages(midi_out_rx)
       })
       .map_err(|err| MidiIoError::Start {
         cause: err.to_string(),
       })
       .map(|handler| MidiIo {
         handler,
-        protocol_tx,
+        midi_out_tx,
       })
   }
 
@@ -197,7 +249,7 @@ impl MidiIo {
     info!("Stopping MIDI IO thread ...");
 
     self
-      .protocol_tx
+      .midi_out_tx
       .send(Protocol::Stop)
       .map_err(|_| MidiIoError::Stop)
       .and_then(|()| self.handler.join().map_err(|_| MidiIoError::Stop))
