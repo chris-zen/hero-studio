@@ -11,7 +11,7 @@ pub use self::coremidi::ID as CORE_MIDI_ID;
 const DEFAULT_ID: &'static str = PORT_MIDI_ID;
 
 #[cfg(target_os = "macos")]
-const DEFAULT_ID: &'static str = CORE_MIDI_ID;
+const DEFAULT_ID: &str = CORE_MIDI_ID;
 
 use std::collections::HashMap;
 
