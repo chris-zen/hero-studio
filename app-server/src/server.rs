@@ -233,7 +233,7 @@ impl Server {
         sender: client_send_tx,
       }));
 
-      let internal_tx = Self::send_messages(addr.clone(), client_send_rx, sender);
+      let internal_tx = Self::send_messages(addr, client_send_rx, sender);
 
       Self::receive_messages(addr, client_receive_tx, internal_tx, receiver);
 

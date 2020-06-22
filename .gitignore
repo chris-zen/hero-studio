@@ -13,3 +13,4 @@ app-wasm/
 *.code-workspace
 .vscode/
 *.log
+gtk-client/

@@ -1,18 +1,32 @@
 // use log::{debug};
 
 use std::rc::Rc;
+use std::sync::Arc;
+use std::thread::JoinHandle;
+use std::time::Duration;
+use std::sync::atomic::{AtomicBool, Ordering};
 
-use portmidi::{DeviceInfo, MidiEvent, MidiMessage, OutputPort, PortMidi};
+use portmidi::{DeviceInfo, InputPort, MidiEvent, MidiMessage, OutputPort, PortMidi};
 
+use hero_studio_core::time::ClockTime;
 use hero_studio_core::midi::buffer::Buffer;
 use hero_studio_core::midi::{encoder::Encoder, messages::Message};
-use hero_studio_core::time::ClockTime;
+use hero_studio_core::midi::decoder::{DecodedMessage, Decoder};
 
-use super::{MidiDestination, MidiDriver, MidiEndpoint, MidiError, MidiOutput, MidiResult};
+use super::{
+  MidiDestination, MidiDriver, MidiEndpoint, MidiError, MidiInput, MidiOutput, MidiResult,
+  MidiSource,
+};
+use crate::midi::drivers::MidiSourceCallback;
+
 
 pub const ID: &str = "PortMIDI";
 
 const MIDI_BUF_LEN: usize = 8 * 1024;
+
+const POLL_MAX_WAIT_NANOS: u64 = 1_000_000; // 1 ms
+
+const INPUT_BUFFER_CAPACITY: usize = 16 * 1024;
 
 pub struct PortMidiDriver {
   context: Rc<PortMidi>,
@@ -41,9 +55,25 @@ impl MidiDriver for PortMidiDriver {
     ID
   }
 
-  // fn sources(&self) -> Iterator<Item=dyn MidiEndpoint> {
-  //   unimplemented!();
-  // }
+  fn sources(&self) -> Vec<Box<MidiSource>> {
+    self
+      .context
+      .devices()
+      .into_iter()
+      .flat_map(|devices| {
+        devices
+          .into_iter()
+          .filter(DeviceInfo::is_input)
+          .map(|device| {
+            Box::new(PortMidiSource {
+              name: device.name().clone(),
+              context: Rc::clone(&self.context),
+              device: device.clone(),
+            }) as Box<MidiSource>
+          })
+      })
+      .collect()
+  }
 
   fn destinations(&self) -> Vec<Box<dyn MidiDestination>> {
     self
@@ -54,8 +84,6 @@ impl MidiDriver for PortMidiDriver {
         devices
           .into_iter()
           .filter(DeviceInfo::is_output)
-          .collect::<Vec<DeviceInfo>>()
-          .into_iter()
           .map(|device| {
             Box::new(PortMidiDestination {
               name: device.name().clone(),
@@ -66,10 +94,111 @@ impl MidiDriver for PortMidiDriver {
       })
       .collect()
   }
+}
 
-  // fn create_virtual_output<T>(&self, name: T) -> dyn MidiOutput where T: Into<String> {
+pub struct PortMidiSource {
+  name: String,
+  context: Rc<PortMidi>,
+  device: DeviceInfo,
+}
 
-  // }
+impl MidiSource for PortMidiSource {
+  fn name(&self) -> &str {
+    self.name.as_str()
+  }
+
+  fn open(&self, callback: Box<MidiSourceCallback>) -> Result<Box<MidiInput>, MidiError> {
+    self
+      .context
+      .input_port(self.device.clone(), MIDI_BUF_LEN)
+      .map_err(|err| MidiError::SourceOpen {
+        cause: format!("Device={:?}, Error={:?}", self.name, err),
+      })
+      .map(|port| {
+        Box::new(PortMidiInput::new(
+          self.name.clone(),
+          self.context.clone(),
+          port,
+          callback,
+        )) as Box<MidiInput>
+      })
+  }
+}
+
+struct PortMidiInput {
+  name: String,
+  _context: Rc<PortMidi>,
+  handler: Option<JoinHandle<()>>,
+  done: Arc<AtomicBool>,
+}
+
+impl PortMidiInput {
+  fn new(
+    name: String,
+    context: Rc<PortMidi>,
+    port: InputPort,
+    callback: Box<MidiSourceCallback>,
+  ) -> PortMidiInput {
+    let done = Arc::new(AtomicBool::new(false));
+    let done_clone = Arc::clone(&done);
+
+    let thread_name = format!("portmidi-{}", name);
+    let handler = std::thread::Builder::new()
+      .name(thread_name)
+      .spawn(|| Self::poll(port, callback, done_clone))
+      .ok();
+
+    PortMidiInput {
+      name,
+      _context: context,
+      handler,
+      done,
+    }
+  }
+
+  fn poll(port: InputPort, callback: Box<MidiSourceCallback>, done: Arc<AtomicBool>) {
+    let mut wait_nanos: u64 = 1;
+    let mut buffer = Buffer::with_capacity(INPUT_BUFFER_CAPACITY);
+    while !done.load(Ordering::Relaxed) {
+      if let Ok(events_available) = port.poll() {
+        if events_available {
+          buffer.reset();
+          if let Ok(Some(events)) = port.read_n(MIDI_BUF_LEN) {
+            for event in events.into_iter() {
+              let raw_msg = event.message;
+              let data = [raw_msg.status, raw_msg.data1, raw_msg.data2];
+              if let Some(DecodedMessage::Message(message)) = Decoder::new(&data).next() {
+                let timestamp = ClockTime::from_millis(u64::from(event.timestamp));
+                buffer.push(timestamp, message)
+              }
+            }
+            (callback)(&buffer);
+            wait_nanos = 1;
+          }
+        }
+      }
+
+      std::thread::sleep(Duration::from_nanos(wait_nanos));
+      wait_nanos = POLL_MAX_WAIT_NANOS.min(wait_nanos * 2);
+    }
+  }
+}
+
+impl MidiEndpoint for PortMidiInput {
+  fn name(&self) -> &str {
+    self.name.as_str()
+  }
+}
+
+impl MidiInput for PortMidiInput {}
+
+impl Drop for PortMidiInput {
+  fn drop(&mut self) {
+    self.done.store(true, Ordering::Relaxed);
+    self.handler.take().into_iter().for_each(|handler| {
+      let _ = handler.join();
+    })
+  }
 }
 
 pub struct PortMidiDestination {
@@ -84,13 +213,11 @@ pub struct PortMidiDestination {
 //   }
 // }
 
-impl MidiEndpoint for PortMidiDestination {
+impl MidiDestination for PortMidiDestination {
   fn name(&self) -> &str {
     self.name.as_str()
   }
-}
 
-impl MidiDestination for PortMidiDestination {
   fn open(&self) -> MidiResult<Box<dyn MidiOutput>> {
     self
       .context

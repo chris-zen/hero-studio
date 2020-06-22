@@ -59,25 +59,30 @@ fn main() -> Result<(), Error> {
   let (server_tx, server_rx) = Server::new_channel();
   let (ctrl_tx, ctrl_rx) = Controller::new_channel();
   let (audio_tx, audio_rx) = PortAudioStream::new_channel();
-  let (midi_tx, midi_rx) = MidiIo::new_channel();
+  let (midi_out_tx, midi_out_rx) = MidiIo::new_channel();
+  let (midi_in_tx, midi_in_rx) = MidiIo::new_channel();
 
   let midi_output = MidiIo::new(
     midi_config,
     audio_config,
-    midi_tx.clone(),
-    midi_rx.clone(),
+    midi_out_tx.clone(),
+    midi_out_rx.clone(),
+    midi_in_tx.clone(),
     ctrl_tx.clone(),
   )?;
 
   let studio = init_studio(studio_config)?;
 
-  let (_audio_driver, mut stream) = init_audio(studio, audio_rx.clone(), midi_tx.clone())?;
+  let (_, mut stream) = init_audio(studio,
+                                   audio_rx.clone(),
+                                   midi_out_tx.clone(),
+                                   midi_in_rx.clone())?;
 
   let controller = Controller::new(
     ctrl_tx.clone(),
     ctrl_rx.clone(),
     audio_tx.clone(),
-    midi_tx.clone(),
+    midi_out_tx.clone(),
   )?;
 
   let server = init_server(
@@ -93,8 +98,8 @@ fn main() -> Result<(), Error> {
   drop(ctrl_rx);
   drop(audio_tx);
   drop(audio_rx);
-  drop(midi_tx);
-  drop(midi_rx);
+  drop(midi_out_tx);
+  drop(midi_out_rx);
 
   stream.wait();
 
@@ -159,14 +164,15 @@ fn init_studio(config: StudioConfig) -> Result<Studio, Error> {
 fn init_audio(
   studio: Studio,
   audio_rx: Receiver<AudioProtocol>,
-  midi_output_tx: Sender<MidiOutputProtocol>,
+  midi_out_tx: Sender<MidiOutputProtocol>,
+  midi_in_rx: Receiver<MidiOutputProtocol>,
 ) -> Result<(Rc<PortAudioDriver>, PortAudioStream), Error> {
   info!("Initialising audio ...");
 
   let audio_config = &studio.config().audio.clone();
 
   let driver = PortAudioDriver::new().map(Rc::new)?;
-  let audio_callback = AudioCallback::new(studio, audio_rx, midi_output_tx);
+  let audio_callback = AudioCallback::new(studio, audio_rx, midi_out_tx, midi_in_rx);
   let mut stream = PortAudioStream::new(driver.clone(), audio_config, audio_callback)?;
   stream.start()?;
 

@@ -15,6 +15,7 @@ addons:
       - libportaudio2
       - libportmidi-dev
   homebrew:
+    update: true
     packages:
       - portaudio
       - portmidi
