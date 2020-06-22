@@ -62,6 +62,10 @@ cargo test
 
 ## Roadmap
 
+Since the begining I knew that the scope of this project was too big for a single person, but anyway I was willing to learn as much as possible by exploring ideas myself through this project. At some point I needed to explore some more ideas from a fresher and newer perspective, so I put this project on hold and started working on a different one (see [kiro-synth](https://github.com/chris-zen/kiro-synth)). This is giving me a new perspective on several fronts such as MIDI handling, threads communication, and UI development. So I expect to come back to this project and apply all of my learnings at some point in the future. I knew this was going to be a looong hobby project ;-P
+
+I keep this roadmap for the record, although it might completely change once I'm back:
+
 - [x] core: Basic transport logic with accurate timing: play, stop, loop
 - [x] app-native: Allow MIDI configuration through `studio.toml`
 - [x] core: MIDI bus system
