@@ -27,7 +27,7 @@
     "copy-webpack-plugin": "^4.6.0",
     "csp-html-webpack-plugin": "^2.5.0",
     "css-loader": "^2.1.0",
-    "electron": "^4.0.1",
+    "electron": "^9.1.0",
     "electron-reload": "^1.4.0",
     "file-loader": "^3.0.1",
     "html-webpack-include-assets-plugin": "^1.0.6",
