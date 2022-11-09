@@ -1,7 +1,7 @@
 [package]
 name = "app-server"
 version = "0.1.0"
-authors = ["Christian Perez-Llamas"]
+authors = ["Christian Zen"]
 edition = "2018"
 
 [dependencies]
